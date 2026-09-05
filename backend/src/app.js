@@ -14,6 +14,8 @@ const negotiationRoutes = require("./routes/negotiations.routes");
 const billingRoutes = require("./routes/billing.routes");
 const dealHealthRoutes = require("./routes/deal-health.routes");
 const anomalyRoutes = require("./routes/anomaly.routes");
+const auditRoutes = require("./routes/audit.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
     
 
 const app = express();
@@ -43,6 +45,8 @@ app.use("/api/negotiations", negotiationRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api", dealHealthRoutes);
 app.use("/api", anomalyRoutes);
+app.use("/api/audit", auditRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 
 module.exports = app;

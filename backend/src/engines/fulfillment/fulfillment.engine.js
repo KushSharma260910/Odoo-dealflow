@@ -1,30 +1,46 @@
 const { pool } = require("../../config/db");
+const { createAuditLog } = require("../audit/audit.engine");
+
 
 /**
  * Allocate quotation items across available warehouses.
  * Automatically creates backorders when stock is insufficient.
  */
 async function allocateQuotation(quotationId) {
+
     const connection = await pool.getConnection();
 
     try {
+
         await connection.beginTransaction();
 
-        // 1. Check quotation
+
+        // ==================================================
+        // 1. CHECK QUOTATION
+        // ==================================================
+
         const [quotations] = await connection.execute(
-            `SELECT id, status
+            `SELECT
+                id,
+                status
              FROM quotations
              WHERE id = ?`,
             [quotationId]
         );
 
+
         if (quotations.length === 0) {
             throw new Error("Quotation not found");
         }
 
+
         const quotation = quotations[0];
 
-        // 2. Get quotation items
+
+        // ==================================================
+        // 2. GET QUOTATION ITEMS
+        // ==================================================
+
         const [items] = await connection.execute(
             `SELECT
                 qi.product_id,
@@ -37,46 +53,71 @@ async function allocateQuotation(quotationId) {
             [quotationId]
         );
 
+
         if (items.length === 0) {
             throw new Error("Quotation has no items");
         }
 
-        // 3. Create fulfillment order
-        const [fulfillmentResult] = await connection.execute(
-            `INSERT INTO fulfillment_orders
-             (quotation_id, status)
-             VALUES (?, 'PENDING')`,
-            [quotationId]
-        );
 
-        const fulfillmentOrderId = fulfillmentResult.insertId;
+        // ==================================================
+        // 3. CREATE FULFILLMENT ORDER
+        // ==================================================
+
+        const [fulfillmentResult] =
+            await connection.execute(
+                `INSERT INTO fulfillment_orders
+                 (quotation_id, status)
+                 VALUES (?, 'PENDING')`,
+                [quotationId]
+            );
+
+
+        const fulfillmentOrderId =
+            fulfillmentResult.insertId;
+
 
         const allocations = [];
         const backorders = [];
 
-        // 4. Process every quotation item
+
+        // ==================================================
+        // 4. PROCESS EVERY QUOTATION ITEM
+        // ==================================================
+
         for (const item of items) {
 
-            let remainingQuantity = Number(item.quantity);
+            let remainingQuantity =
+                Number(item.quantity);
 
+
+            // ------------------------------------------
             // Get warehouses with available stock
-            const [inventory] = await connection.execute(
-                `SELECT
-                    wi.warehouse_id,
-                    w.name AS warehouse_name,
-                    wi.quantity,
-                    wi.reserved_quantity,
-                    (wi.quantity - wi.reserved_quantity) AS available_quantity
-                 FROM warehouse_inventory wi
-                 JOIN warehouses w
-                   ON wi.warehouse_id = w.id
-                 WHERE wi.product_id = ?
-                   AND w.is_active = 1
-                   AND (wi.quantity - wi.reserved_quantity) > 0
-                 ORDER BY available_quantity DESC
-                 FOR UPDATE`,
-                [item.product_id]
-            );
+            // ------------------------------------------
+
+            const [inventory] =
+                await connection.execute(
+                    `SELECT
+                        wi.warehouse_id,
+                        w.name AS warehouse_name,
+                        wi.quantity,
+                        wi.reserved_quantity,
+                        (wi.quantity - wi.reserved_quantity)
+                            AS available_quantity
+                     FROM warehouse_inventory wi
+                     JOIN warehouses w
+                       ON wi.warehouse_id = w.id
+                     WHERE wi.product_id = ?
+                       AND w.is_active = 1
+                       AND (wi.quantity - wi.reserved_quantity) > 0
+                     ORDER BY available_quantity DESC
+                     FOR UPDATE`,
+                    [item.product_id]
+                );
+
+
+            // ------------------------------------------
+            // Allocate stock
+            // ------------------------------------------
 
             for (const warehouse of inventory) {
 
@@ -84,16 +125,22 @@ async function allocateQuotation(quotationId) {
                     break;
                 }
 
-                const available = Number(
-                    warehouse.available_quantity
-                );
 
-                const allocated = Math.min(
-                    remainingQuantity,
-                    available
-                );
+                const available =
+                    Number(warehouse.available_quantity);
 
+
+                const allocated =
+                    Math.min(
+                        remainingQuantity,
+                        available
+                    );
+
+
+                // --------------------------------------
                 // Reserve stock
+                // --------------------------------------
+
                 await connection.execute(
                     `UPDATE warehouse_inventory
                      SET reserved_quantity =
@@ -107,7 +154,11 @@ async function allocateQuotation(quotationId) {
                     ]
                 );
 
+
+                // --------------------------------------
                 // Store allocation
+                // --------------------------------------
+
                 await connection.execute(
                     `INSERT INTO fulfillment_items
                     (
@@ -127,18 +178,33 @@ async function allocateQuotation(quotationId) {
                     ]
                 );
 
+
                 allocations.push({
-                    product_id: item.product_id,
-                    product_name: item.product_name,
-                    warehouse_id: warehouse.warehouse_id,
-                    warehouse_name: warehouse.warehouse_name,
-                    quantity_allocated: allocated
+                    product_id:
+                        item.product_id,
+
+                    product_name:
+                        item.product_name,
+
+                    warehouse_id:
+                        warehouse.warehouse_id,
+
+                    warehouse_name:
+                        warehouse.warehouse_name,
+
+                    quantity_allocated:
+                        allocated
                 });
+
 
                 remainingQuantity -= allocated;
             }
 
-            // 5. Create backorder if stock insufficient
+
+            // ==================================================
+            // 5. CREATE BACKORDER IF STOCK IS INSUFFICIENT
+            // ==================================================
+
             if (remainingQuantity > 0) {
 
                 await connection.execute(
@@ -157,46 +223,135 @@ async function allocateQuotation(quotationId) {
                     ]
                 );
 
+
                 backorders.push({
-                    product_id: item.product_id,
-                    product_name: item.product_name,
-                    quantity: remainingQuantity,
-                    status: "PENDING"
+                    product_id:
+                        item.product_id,
+
+                    product_name:
+                        item.product_name,
+
+                    quantity:
+                        remainingQuantity,
+
+                    status:
+                        "PENDING"
                 });
             }
         }
 
-        // 6. Determine fulfillment status
+
+        // ==================================================
+        // 6. DETERMINE FULFILLMENT STATUS
+        // ==================================================
+
         let status = "ALLOCATED";
 
+
         if (backorders.length > 0) {
+
             status =
                 allocations.length > 0
                     ? "PARTIAL"
                     : "BACKORDER";
         }
 
-        // 7. Update fulfillment order
+
+        // ==================================================
+        // 7. UPDATE FULFILLMENT ORDER
+        // ==================================================
+
         await connection.execute(
             `UPDATE fulfillment_orders
              SET status = ?
              WHERE id = ?`,
-            [status, fulfillmentOrderId]
+            [
+                status,
+                fulfillmentOrderId
+            ]
         );
+
+
+        // ==================================================
+        // 8. COMMIT TRANSACTION
+        // ==================================================
 
         await connection.commit();
 
+
+        // ==================================================
+        // 9. AUDIT FULFILLMENT
+        // ==================================================
+
+        await createAuditLog({
+
+            userId: null,
+
+            entityType:
+                "FULFILLMENT",
+
+            entityId:
+                fulfillmentOrderId,
+
+            action:
+                "FULFILLMENT_ALLOCATED",
+
+            oldValue: {
+                status:
+                    "PENDING"
+            },
+
+            newValue: {
+                status,
+
+                quotation_id:
+                    quotationId,
+
+                fulfillment_order_id:
+                    fulfillmentOrderId,
+
+                allocation_count:
+                    allocations.length,
+
+                backorder_count:
+                    backorders.length,
+
+                allocations,
+
+                backorders
+            },
+
+            reason:
+                backorders.length > 0
+                    ? "Fulfillment allocated across available warehouses with backorder created for unavailable stock"
+                    : "Fulfillment successfully allocated across available warehouses"
+        });
+
+
+        // ==================================================
+        // 10. RETURN RESULT
+        // ==================================================
+
         return {
-            fulfillment_order_id: fulfillmentOrderId,
-            quotation_id: quotationId,
+
+            fulfillment_order_id:
+                fulfillmentOrderId,
+
+            quotation_id:
+                quotationId,
+
             status,
+
             allocations,
+
             backorders
         };
+
 
     } catch (error) {
 
         await connection.rollback();
+
         throw error;
 
     } finally {
@@ -209,7 +364,13 @@ async function allocateQuotation(quotationId) {
 /**
  * Get fulfillment details.
  */
-async function getFulfillmentById(fulfillmentId) {
+async function getFulfillmentById(
+    fulfillmentId
+) {
+
+    // ==================================================
+    // GET FULFILLMENT ORDER
+    // ==================================================
 
     const [orders] = await pool.execute(
         `SELECT
@@ -225,11 +386,20 @@ async function getFulfillmentById(fulfillmentId) {
         [fulfillmentId]
     );
 
+
     if (orders.length === 0) {
-        throw new Error("Fulfillment order not found");
+        throw new Error(
+            "Fulfillment order not found"
+        );
     }
 
+
     const order = orders[0];
+
+
+    // ==================================================
+    // GET ALLOCATIONS
+    // ==================================================
 
     const [allocations] = await pool.execute(
         `SELECT
@@ -249,6 +419,11 @@ async function getFulfillmentById(fulfillmentId) {
         [fulfillmentId]
     );
 
+
+    // ==================================================
+    // GET BACKORDERS
+    // ==================================================
+
     const [backorders] = await pool.execute(
         `SELECT
             b.id,
@@ -264,13 +439,25 @@ async function getFulfillmentById(fulfillmentId) {
         [fulfillmentId]
     );
 
+
+    // ==================================================
+    // RETURN COMPLETE FULFILLMENT
+    // ==================================================
+
     return {
+
         ...order,
+
         allocations,
+
         backorders
     };
 }
 
+
+// ======================================================
+// EXPORTS
+// ======================================================
 
 module.exports = {
     allocateQuotation,
