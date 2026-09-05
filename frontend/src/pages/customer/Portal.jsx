@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { customerPortalService } from '../../services/customerPortal.service';
 import { productService } from '../../services/product.service';
 import { quotationService } from '../../services/quotation.service';
+import { discountService } from '../../services/discount.service';
 import { useAuth } from '../../context/AuthContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
@@ -23,6 +24,7 @@ export const Portal = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [requestedDiscount, setRequestedDiscount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -88,13 +90,15 @@ export const Portal = () => {
         await quotationService.addItem(quoteId, {
           product_id: Number(selectedProductId),
           quantity: Number(quantity),
-          discount_percent: 0,
+          discount_percent: Number(requestedDiscount),
         });
+        await discountService.evaluate(quoteId);
         await quotationService.analyzeRisk(quoteId);
 
         setModalOpen(false);
         setSelectedProductId('');
         setQuantity(1);
+        setRequestedDiscount(0);
         setActionMessage(`Order proposal request #QT-${quoteId} submitted to sales team!`);
         fetchData();
       }
@@ -268,6 +272,19 @@ export const Portal = () => {
               onChange={(e) => setQuantity(e.target.value)}
               className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Requested Discount %</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={requestedDiscount}
+              onChange={(e) => setRequestedDiscount(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+            />
+            <p className="text-xs text-gray-500 mt-1">The backend evaluates this against your customer-tier rules.</p>
           </div>
           <div className="flex justify-end space-x-2 pt-2">
             <button
