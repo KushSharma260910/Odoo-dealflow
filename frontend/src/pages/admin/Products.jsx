@@ -11,6 +11,7 @@ export const Products = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -97,10 +98,17 @@ export const Products = () => {
   if (loading) return <LoadingSpinner label="Loading product catalog..." />;
 
   const filtered = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase())
+    (p) => {
+      const haystack = [p.name, p.sku, p.description, p.category_name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      const matchesSearch = haystack.includes(search.toLowerCase());
+      const matchesCategory = categoryFilter === 'ALL' || String(p.category_id) === categoryFilter;
+      return matchesSearch && matchesCategory;
+    }
   );
+  const categories = [...new Map(products.filter((p) => p.category_id != null).map((p) => [String(p.category_id), p.category_name || `Category #${p.category_id}`])).entries()];
 
   return (
     <div className="space-y-6">
@@ -118,7 +126,7 @@ export const Products = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
           <input
@@ -129,12 +137,25 @@ export const Products = () => {
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm"
           />
         </div>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+        >
+          <option value="ALL">All Categories</option>
+          {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        {(search || categoryFilter !== 'ALL') && (
+          <button type="button" onClick={() => { setSearch(''); setCategoryFilter('ALL'); }} className="text-sm text-blue-600 font-semibold px-2">
+            Reset
+          </button>
+        )}
       </div>
 
       {error && <div className="p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
 
       {filtered.length === 0 ? (
-        <EmptyState title="No products found" message="No product records match your filter." />
+          <EmptyState title="No products found" message={search || categoryFilter !== 'ALL' ? 'No products match the current filters.' : 'No products have been configured yet.'} />
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">

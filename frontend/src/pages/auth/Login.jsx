@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Mail, ArrowRight, Shield, User, Building } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Shield, User, Building, ShieldCheck, BriefcaseBusiness, Users, Landmark, Truck, UserRound } from 'lucide-react';
+
+const DEMO_ROLES = [
+  { label: 'Admin', email: 'admin@dealflow.com', icon: ShieldCheck },
+  { label: 'Sales', email: 'sales@dealflow.com', icon: BriefcaseBusiness },
+  { label: 'Manager', email: 'manager@dealflow.com', icon: Users },
+  { label: 'Finance', email: 'finance@dealflow.com', icon: Landmark },
+  { label: 'Operations', email: 'operations@dealflow.com', icon: Truck },
+  { label: 'Customer', email: 'customer@dealflow.com', icon: UserRound },
+];
 
 export const Login = () => {
   const { login, register } = useAuth();
@@ -15,6 +24,7 @@ export const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedRole, setSelectedRole] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -75,6 +85,25 @@ export const Login = () => {
           {error && (
             <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold">
               {error}
+            </div>
+          )}
+
+          {!isSignUp && (
+            <div className="mb-5">
+              <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Quick sign in</p>
+              <div className="grid grid-cols-3 gap-2">
+                {DEMO_ROLES.map(({ label, email: roleEmail, icon: Icon }) => (
+                  <button
+                    key={roleEmail}
+                    type="button"
+                    onClick={() => { setSelectedRole(roleEmail); setEmail(roleEmail); setPassword('Password123'); setError(null); }}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-xs font-semibold transition-colors ${selectedRole === roleEmail ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

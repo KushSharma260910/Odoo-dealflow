@@ -18,8 +18,7 @@ export const Invoices = () => {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      // Fetch billing by quotation ID 1 or list placeholder
-      const res = await billingService.byQuotation(1);
+      const res = await billingService.customerInvoices();
       if (res.success) {
         setInvoices(res.data || []);
       }

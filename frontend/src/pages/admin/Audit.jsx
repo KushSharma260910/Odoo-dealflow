@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { auditService } from '../../services/audit.service';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { EmptyState } from '../../components/common/EmptyState';
-import { ShieldCheck, Search } from 'lucide-react';
+import { ShieldCheck, Search, RefreshCw } from 'lucide-react';
 
 export const Audit = () => {
   const [logs, setLogs] = useState([]);
@@ -41,6 +41,10 @@ export const Audit = () => {
           <h1 className="text-2xl font-bold text-gray-900">System Audit Trail</h1>
           <p className="text-sm text-gray-500">Immutable platform log of changes and user actions</p>
         </div>
+        <button onClick={fetchLogs} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50">
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -59,7 +63,7 @@ export const Audit = () => {
       {error && <div className="p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
 
       {filtered.length === 0 ? (
-        <EmptyState title="No audit logs recorded" message="No platform action logs match your filter." />
+        <EmptyState title={search ? 'No matching audit logs' : 'No audit logs recorded'} message={search ? 'No platform action logs match your filter.' : 'No platform action logs have been recorded yet.'} />
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -82,7 +86,7 @@ export const Audit = () => {
                     <td className="px-6 py-4 font-semibold text-purple-700">{l.user_id ? `User #${l.user_id}` : 'System'}</td>
                     <td className="px-6 py-4 font-semibold text-gray-900">{l.entity_type} #{l.entity_id}</td>
                     <td className="px-6 py-4 font-bold text-blue-700">{l.action}</td>
-                    <td className="px-6 py-4 text-gray-400">{l.ip_address || '127.0.0.1'}</td>
+                    <td className="px-6 py-4 text-gray-400">{l.ip_address || '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -15,6 +15,7 @@ export const Warehouses = () => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
 
   // Create Warehouse Modal
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -94,6 +95,11 @@ export const Warehouses = () => {
   };
 
   if (loading) return <LoadingSpinner label="Loading warehouse network & inventory..." />;
+  const filteredWarehouses = warehouses.filter((w) => [w.name, w.location, w.status, w.shipping_priority]
+    .filter((value) => value !== null && value !== undefined)
+    .join(' ')
+    .toLowerCase()
+    .includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -113,9 +119,14 @@ export const Warehouses = () => {
 
       {error && <div className="p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
 
+      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center gap-3">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search warehouse name, location, or status..." className="w-full sm:w-96 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+        {search && <button type="button" onClick={() => setSearch('')} className="text-sm text-blue-600 font-semibold">Reset</button>}
+      </div>
+
       {/* Warehouse Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {warehouses.map((w) => {
+        {filteredWarehouses.map((w) => {
           const isSelected = selectedWarehouse?.id === w.id;
           return (
             <div
@@ -143,6 +154,7 @@ export const Warehouses = () => {
           );
         })}
       </div>
+      {filteredWarehouses.length === 0 && <EmptyState title="No warehouses found" message={search ? 'No warehouses match your search.' : 'No warehouses are configured yet.'} />}
 
       {/* Selected Warehouse Stock Section */}
       {selectedWarehouse && (

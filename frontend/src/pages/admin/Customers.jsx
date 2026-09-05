@@ -92,10 +92,11 @@ export const Customers = () => {
   if (loading) return <LoadingSpinner label="Loading customer accounts..." />;
 
   const filtered = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.email || '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.company_name || '').toLowerCase().includes(search.toLowerCase())
+    (c) => [c.name, c.email, c.company_name, c.tier, c.status]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(search.toLowerCase())
   );
 
   return (
@@ -130,7 +131,7 @@ export const Customers = () => {
       {error && <div className="p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
 
       {filtered.length === 0 ? (
-        <EmptyState title="No customer accounts" message="No customer accounts match your search query." />
+        <EmptyState title="No customer accounts" message={search ? 'No customer accounts match your search query.' : 'No customer accounts exist yet.'} />
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">

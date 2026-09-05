@@ -34,8 +34,6 @@ import { Negotiation } from '../pages/customer/Negotiation';
 import { Products } from '../pages/admin/Products';
 import { Customers } from '../pages/admin/Customers';
 import { DiscountRules } from '../pages/admin/DiscountRules';
-import { Warehouses as AdminWarehouses } from '../pages/admin/Warehouses';
-import { SubscriptionPlans } from '../pages/admin/SubscriptionPlans';
 import { Audit } from '../pages/admin/Audit';
 
 // Protected Route Component
@@ -184,22 +182,6 @@ export const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <DiscountRules />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/warehouses"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <AdminWarehouses />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/subscription-plans"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <SubscriptionPlans />
             </ProtectedRoute>
           }
         />

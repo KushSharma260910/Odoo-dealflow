@@ -18,7 +18,6 @@ import {
   UserCheck,
   Menu,
   X,
-  CreditCard,
 } from 'lucide-react';
 
 export const Layout = () => {
@@ -56,8 +55,6 @@ export const Layout = () => {
     { label: 'Products', path: '/admin/products', roles: ['ADMIN'], icon: Package },
     { label: 'Customers', path: '/admin/customers', roles: ['ADMIN'], icon: Users },
     { label: 'Discount Rules', path: '/admin/discount-rules', roles: ['ADMIN'], icon: Sparkles },
-    { label: 'Warehouse Setup', path: '/admin/warehouses', roles: ['ADMIN'], icon: Warehouse },
-    { label: 'Plans (Sub)', path: '/admin/subscription-plans', roles: ['ADMIN'], icon: CreditCard },
     { label: 'Audit Logs', path: '/admin/audit', roles: ['ADMIN'], icon: ShieldCheck },
   ];
 
@@ -65,10 +62,50 @@ export const Layout = () => {
   const visibleNav = navItems.filter((item) => !role || item.roles.includes(role));
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Top Navigation */}
-      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-gray-100 flex">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white p-4 transform transition-transform lg:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:static lg:flex lg:flex-col`}
+      >
+        <div className="flex items-center justify-between h-12 mb-6">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-lg">D</div>
+            <span className="font-bold text-xl tracking-tight">DealFlow360</span>
+          </div>
+          <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1 text-slate-300">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Navigation</div>
+        <nav className="mt-2 space-y-1 flex-1 overflow-y-auto">
+          {visibleNav.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname.startsWith(item.path);
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+        <div className="border-t border-slate-700 pt-4 mt-4">
+          <div className="px-3 text-xs text-slate-400 truncate">{user?.name || user?.email}</div>
+          <div className="px-3 mt-1 text-xs text-blue-300 font-mono">{role || 'USER'}</div>
+        </div>
+      </aside>
+
+      <div className="min-w-0 flex-1 flex flex-col">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -76,26 +113,13 @@ export const Layout = () => {
             >
               {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-lg text-white">
-                D
-              </div>
-              <span className="font-bold text-xl tracking-tight text-white">DealFlow360</span>
-            </div>
+            <span className="lg:hidden font-bold text-gray-900">DealFlow360</span>
           </div>
 
           <div className="flex items-center space-x-4">
-            {user && (
-              <div className="hidden sm:flex items-center space-x-3 text-sm">
-                <div className="text-right">
-                  <div className="font-semibold text-slate-200">{user.name || user.email}</div>
-                  <div className="text-xs text-blue-400 font-mono font-medium">{role || 'USER'}</div>
-                </div>
-              </div>
-            )}
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 transition-colors"
+              className="flex items-center space-x-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -104,43 +128,9 @@ export const Layout = () => {
         </div>
       </header>
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 gap-6">
-        {/* Sidebar Navigation */}
-        <aside
-          className={`lg:w-64 flex-shrink-0 bg-white rounded-xl border border-gray-200 shadow-sm p-4 ${
-            mobileOpen ? 'block fixed inset-x-4 top-20 z-50 bg-white shadow-2xl' : 'hidden lg:block'
-          }`}
-        >
-          <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Navigation ({role})
-          </div>
-          <nav className="mt-2 space-y-1">
-            {visibleNav.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname.startsWith(item.path);
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
-                  <span>{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
           <Outlet />
-        </main>
+      </main>
       </div>
     </div>
   );

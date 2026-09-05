@@ -11,6 +11,7 @@ export const DealMonitoring = () => {
   const [risks, setRisks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analyzingId, setAnalyzingId] = useState(null);
 
   useEffect(() => {
     const loadDeals = async () => {
@@ -35,6 +36,22 @@ export const DealMonitoring = () => {
 
   const highRiskDeals = quotations.filter((q) => q.risk_level === 'HIGH' || q.risk_level === 'CRITICAL');
   const pendingApprovalDeals = quotations.filter((q) => q.status === 'PENDING_APPROVAL');
+
+  const analyzeRisk = async (id) => {
+    try {
+      setAnalyzingId(id);
+      const res = await quotationService.analyzeRisk(id);
+      if (res.success) {
+        setQuotations((current) => current.map((quote) => quote.id === id
+          ? { ...quote, risk_score: res.data.risk_score, risk_level: res.data.risk_level, status: res.data.status || quote.status }
+          : quote));
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -107,6 +124,9 @@ export const DealMonitoring = () => {
                       <Eye className="w-3.5 h-3.5" />
                       <span>Inspect</span>
                     </Link>
+                    <button onClick={() => analyzeRisk(q.id)} disabled={analyzingId === q.id} className="ml-3 text-xs font-semibold text-amber-700 hover:text-amber-900 disabled:opacity-50">
+                      {analyzingId === q.id ? 'Analyzing...' : 'Analyze risk'}
+                    </button>
                   </td>
                 </tr>
               ))}
