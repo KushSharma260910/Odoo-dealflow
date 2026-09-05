@@ -27,4 +27,4 @@ router.delete("/rules/:id", deleteDiscountRule);
 
 router.post("/evaluate/:quotationId", evaluateDiscount);
 
-module.exports = router;
+module.exports = router; 

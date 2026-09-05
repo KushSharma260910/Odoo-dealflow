@@ -6,6 +6,11 @@ const customerRoutes = require("./routes/customers.routes");
 const productRoutes = require("./routes/products.routes");
 const quotationRoutes = require("./routes/quotations.routes");
 const discountRoutes = require("./routes/discounts.routes");
+const approvalRoutes = require("./routes/approvals.routes");
+const riskRoutes = require("./routes/risk.routes");
+const warehouseRoutes = require("./routes/warehouses.routes");
+const recommendationRoutes =require("./routes/recommendations.routes");
+    
 
 const app = express();
 
@@ -26,6 +31,10 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/quotations", quotationRoutes);
 app.use("/api/discounts", discountRoutes);
+app.use("/api/approvals", approvalRoutes);
+app.use("/api", riskRoutes);
+app.use("/api/warehouses", warehouseRoutes);
+app.use("/api/recommendations", recommendationRoutes);
 
 
 module.exports = app;
