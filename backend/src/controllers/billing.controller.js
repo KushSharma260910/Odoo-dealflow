@@ -1,8 +1,11 @@
 const billingEngine =
     require("../engines/billing/billing.engine");
 
+
 async function createHybridBilling(req, res) {
+
     try {
+
         const result =
             await billingEngine.createHybridBilling(
                 req.params.quotationId
@@ -15,6 +18,7 @@ async function createHybridBilling(req, res) {
         });
 
     } catch (error) {
+
         res.status(400).json({
             success: false,
             message: error.message
@@ -24,7 +28,9 @@ async function createHybridBilling(req, res) {
 
 
 async function getInvoice(req, res) {
+
     try {
+
         const result =
             await billingEngine.getInvoiceById(
                 req.params.id
@@ -36,6 +42,7 @@ async function getInvoice(req, res) {
         });
 
     } catch (error) {
+
         res.status(404).json({
             success: false,
             message: error.message
@@ -45,7 +52,9 @@ async function getInvoice(req, res) {
 
 
 async function getBillingSchedule(req, res) {
+
     try {
+
         const result =
             await billingEngine.getBillingSchedule(
                 req.params.id
@@ -57,6 +66,7 @@ async function getBillingSchedule(req, res) {
         });
 
     } catch (error) {
+
         res.status(404).json({
             success: false,
             message: error.message
@@ -66,7 +76,9 @@ async function getBillingSchedule(req, res) {
 
 
 async function getBillingByOrder(req, res) {
+
     try {
+
         const result =
             await billingEngine.getBillingByOrder(
                 req.params.orderId
@@ -78,6 +90,7 @@ async function getBillingByOrder(req, res) {
         });
 
     } catch (error) {
+
         res.status(400).json({
             success: false,
             message: error.message
@@ -87,7 +100,9 @@ async function getBillingByOrder(req, res) {
 
 
 async function generateRecurringInvoice(req, res) {
+
     try {
+
         const result =
             await billingEngine.generateRecurringInvoice(
                 req.params.id
@@ -100,6 +115,7 @@ async function generateRecurringInvoice(req, res) {
         });
 
     } catch (error) {
+
         res.status(400).json({
             success: false,
             message: error.message

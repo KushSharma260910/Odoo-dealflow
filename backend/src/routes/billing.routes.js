@@ -11,65 +11,41 @@ const {
     generateRecurringInvoice
 } = require("../controllers/billing.controller");
 
+
 const router = express.Router();
 
 router.use(authenticate);
 
 
-/*
-|--------------------------------------------------------------------------
-| Create billing from quotation
-|--------------------------------------------------------------------------
-*/
-
+// Create billing from quotation
 router.post(
     "/quotation/:quotationId/create",
     createHybridBilling
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Invoice
-|--------------------------------------------------------------------------
-*/
-
+// Get invoice
 router.get(
     "/invoice/:id",
     getInvoice
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Billing schedule
-|--------------------------------------------------------------------------
-*/
-
+// Get subscription schedule
 router.get(
     "/schedule/:id",
     getBillingSchedule
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Billing by fulfillment order
-|--------------------------------------------------------------------------
-*/
-
+// Get complete billing by fulfillment order
 router.get(
     "/order/:orderId",
     getBillingByOrder
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Generate recurring invoice
-|--------------------------------------------------------------------------
-*/
-
+// Generate recurring invoice
 router.post(
     "/schedule/:id/generate-invoice",
     generateRecurringInvoice

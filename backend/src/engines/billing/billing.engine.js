@@ -24,33 +24,22 @@ function generateInvoiceNumber() {
 
 
 /*
-|--------------------------------------------------------------------------
-| CREATE HYBRID BILLING
-|--------------------------------------------------------------------------
-|
-| Flow:
-|
-| Approved/Accepted Quotation
-|          ↓
-|     Fulfillment Order
-|          ↓
-|     Billing Engine
-|       /       \
-|      /         \
-| ONE_TIME     RECURRING
-|    ↓              ↓
-| Invoice      Billing Schedule
-|
+====================================================
+CREATE HYBRID BILLING
+====================================================
 */
+
 async function createHybridBilling(quotationId) {
+
     const connection = await pool.getConnection();
 
     try {
+
         await connection.beginTransaction();
 
-        // -------------------------------------------------------------
+        // -----------------------------------------
         // 1. Get quotation
-        // -------------------------------------------------------------
+        // -----------------------------------------
 
         const [quotations] = await connection.execute(
             `SELECT *
@@ -70,13 +59,14 @@ async function createHybridBilling(quotationId) {
             quotation.status !== "ACCEPTED"
         ) {
             throw new Error(
-                "Only APPROVED or ACCEPTED quotations can be billed"
+                "Quotation must be APPROVED or ACCEPTED before billing"
             );
         }
 
-        // -------------------------------------------------------------
-        // 2. Find fulfillment order
-        // -------------------------------------------------------------
+
+        // -----------------------------------------
+        // 2. Get fulfillment order
+        // -----------------------------------------
 
         const [fulfillmentOrders] = await connection.execute(
             `SELECT *
@@ -95,15 +85,15 @@ async function createHybridBilling(quotationId) {
 
         const fulfillmentOrder = fulfillmentOrders[0];
 
-        // -------------------------------------------------------------
+
+        // -----------------------------------------
         // 3. Prevent duplicate invoice
-        // -------------------------------------------------------------
+        // -----------------------------------------
 
         const [existingInvoices] = await connection.execute(
             `SELECT *
              FROM invoices
-             WHERE order_id = ?
-             LIMIT 1`,
+             WHERE order_id = ?`,
             [fulfillmentOrder.id]
         );
 
@@ -113,18 +103,23 @@ async function createHybridBilling(quotationId) {
             );
         }
 
-        // -------------------------------------------------------------
+
+        // -----------------------------------------
         // 4. Get quotation items
-        // -------------------------------------------------------------
+        // -----------------------------------------
 
         const [items] = await connection.execute(
             `SELECT
                 qi.*,
                 p.name AS product_name,
-                p.description AS product_description
+                sp.name AS subscription_plan_name,
+                sp.billing_cycle,
+                sp.price AS subscription_price
              FROM quotation_items qi
              JOIN products p
                 ON qi.product_id = p.id
+             LEFT JOIN subscription_plans sp
+                ON qi.subscription_plan_id = sp.id
              WHERE qi.quotation_id = ?`,
             [quotationId]
         );
@@ -133,9 +128,10 @@ async function createHybridBilling(quotationId) {
             throw new Error("Quotation has no items");
         }
 
-        // -------------------------------------------------------------
+
+        // -----------------------------------------
         // 5. Separate billing types
-        // -------------------------------------------------------------
+        // -----------------------------------------
 
         const oneTimeItems = items.filter(
             item => item.billing_type === "ONE_TIME"
@@ -145,38 +141,54 @@ async function createHybridBilling(quotationId) {
             item => item.billing_type === "RECURRING"
         );
 
-        // -------------------------------------------------------------
-        // 6. Calculate one-time invoice
-        // -------------------------------------------------------------
+
+        // =========================================
+        // ONE-TIME BILLING
+        // =========================================
 
         let oneTimeSubtotal = 0;
         let oneTimeTax = 0;
 
         for (const item of oneTimeItems) {
-            const amount = Number(item.line_total);
 
-            const tax = amount * (Number(item.tax_percent || 0) / 100);
+            const grossAmount =
+                Number(item.unit_price) *
+                Number(item.quantity);
 
-            oneTimeSubtotal += amount;
-            oneTimeTax += tax;
+            const discountAmount =
+                grossAmount *
+                (Number(item.discount_percent) / 100);
+
+            const netAmount =
+                grossAmount - discountAmount;
+
+            const taxAmount =
+                netAmount *
+                (Number(item.tax_percent) / 100);
+
+            oneTimeSubtotal += netAmount;
+            oneTimeTax += taxAmount;
         }
 
-        const oneTimeTotal = oneTimeSubtotal + oneTimeTax;
 
-        // -------------------------------------------------------------
-        // 7. Create invoice if there are one-time items
-        // -------------------------------------------------------------
+        let invoice = null;
 
-        let invoiceId = null;
-        let invoiceNumber = null;
+
+        // -----------------------------------------
+        // 6. Create invoice for ONE_TIME items
+        // -----------------------------------------
 
         if (oneTimeItems.length > 0) {
-            invoiceNumber = generateInvoiceNumber();
 
-            const today = new Date();
+            const invoiceNumber = generateInvoiceNumber();
 
-            const dueDate = new Date(today);
+            const invoiceDate = new Date();
+
+            const dueDate = new Date();
             dueDate.setDate(dueDate.getDate() + 30);
+
+            const totalAmount =
+                oneTimeSubtotal + oneTimeTax;
 
             const [invoiceResult] = await connection.execute(
                 `INSERT INTO invoices
@@ -194,21 +206,35 @@ async function createHybridBilling(quotationId) {
                 [
                     fulfillmentOrder.id,
                     invoiceNumber,
-                    formatDate(today),
+                    formatDate(invoiceDate),
                     formatDate(dueDate),
                     oneTimeSubtotal,
                     oneTimeTax,
-                    oneTimeTotal
+                    totalAmount
                 ]
             );
 
-            invoiceId = invoiceResult.insertId;
 
-            // ---------------------------------------------------------
-            // 8. Create invoice items
-            // ---------------------------------------------------------
+            const invoiceId = invoiceResult.insertId;
+
+
+            // -------------------------------------
+            // 7. Create invoice items
+            // -------------------------------------
 
             for (const item of oneTimeItems) {
+
+                const grossAmount =
+                    Number(item.unit_price) *
+                    Number(item.quantity);
+
+                const discountAmount =
+                    grossAmount *
+                    (Number(item.discount_percent) / 100);
+
+                const amount =
+                    grossAmount - discountAmount;
+
                 await connection.execute(
                     `INSERT INTO invoice_items
                     (
@@ -226,178 +252,192 @@ async function createHybridBilling(quotationId) {
                         item.product_name,
                         item.quantity,
                         item.unit_price,
-                        item.line_total
+                        amount
                     ]
                 );
             }
+
+
+            invoice = {
+                id: invoiceId,
+                invoice_number: invoiceNumber,
+                subtotal: oneTimeSubtotal,
+                tax_amount: oneTimeTax,
+                total_amount: totalAmount
+            };
         }
 
-        // -------------------------------------------------------------
-        // 9. Create recurring billing schedules
-        // -------------------------------------------------------------
 
-        const billingSchedules = [];
+        // =========================================
+        // RECURRING BILLING
+        // =========================================
 
-        const today = new Date();
+        const subscriptions = [];
+
 
         for (const item of recurringItems) {
+
             if (!item.subscription_plan_id) {
                 throw new Error(
-                    `Subscription plan missing for product ${item.product_name}`
+                    `Recurring item ${item.product_name} requires a subscription plan`
                 );
             }
 
-            const [plans] = await connection.execute(
-                `SELECT *
-                 FROM subscription_plans
-                 WHERE id = ?
-                   AND is_active = 1`,
-                [item.subscription_plan_id]
-            );
-
-            if (plans.length === 0) {
-                throw new Error(
-                    `Subscription plan ${item.subscription_plan_id} not found`
-                );
-            }
-
-            const plan = plans[0];
-
-            const startDate = new Date(today);
+            const startDate = new Date();
 
             const nextBillingDate =
-                addBillingPeriod(startDate, plan.billing_cycle);
+                addBillingPeriod(
+                    startDate,
+                    item.billing_cycle
+                );
 
             const amount =
-                Number(plan.price) * Number(item.quantity);
+                Number(item.subscription_price) *
+                Number(item.quantity);
 
-            const endDate =
-                addBillingPeriod(startDate, "YEARLY");
 
-            const [scheduleResult] = await connection.execute(
-                `INSERT INTO billing_schedules
-                (
-                    order_id,
-                    subscription_plan_id,
-                    start_date,
-                    end_date,
-                    next_billing_date,
-                    quantity,
-                    amount,
-                    status
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-                [
-                    fulfillmentOrder.id,
-                    plan.id,
-                    formatDate(startDate),
-                    formatDate(endDate),
-                    formatDate(nextBillingDate),
-                    item.quantity,
-                    amount
-                ]
-            );
+            const [scheduleResult] =
+                await connection.execute(
+                    `INSERT INTO billing_schedules
+                    (
+                        order_id,
+                        subscription_plan_id,
+                        start_date,
+                        end_date,
+                        next_billing_date,
+                        quantity,
+                        amount,
+                        status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+                    [
+                        fulfillmentOrder.id,
+                        item.subscription_plan_id,
+                        formatDate(startDate),
+                        formatDate(
+                            addBillingPeriod(
+                                startDate,
+                                "YEARLY"
+                            )
+                        ),
+                        formatDate(nextBillingDate),
+                        item.quantity,
+                        amount
+                    ]
+                );
 
-            billingSchedules.push({
-                id: scheduleResult.insertId,
+
+            subscriptions.push({
+                schedule_id: scheduleResult.insertId,
                 product_id: item.product_id,
                 product_name: item.product_name,
-                subscription_plan_id: plan.id,
-                plan_name: plan.name,
-                billing_cycle: plan.billing_cycle,
+                subscription_plan_id: item.subscription_plan_id,
+                subscription_plan: item.subscription_plan_name,
+                billing_cycle: item.billing_cycle,
                 quantity: item.quantity,
-                amount,
-                next_billing_date: formatDate(nextBillingDate)
+                amount
             });
         }
 
-        // -------------------------------------------------------------
-        // 10. Billing type
-        // -------------------------------------------------------------
 
-        let billingType = "NONE";
-
-        if (
-            oneTimeItems.length > 0 &&
-            recurringItems.length > 0
-        ) {
-            billingType = "HYBRID";
-        } else if (oneTimeItems.length > 0) {
-            billingType = "ONE_TIME";
-        } else if (recurringItems.length > 0) {
-            billingType = "RECURRING";
-        }
-
-        // -------------------------------------------------------------
-        // 11. Calculate recurring value
-        // -------------------------------------------------------------
-
-        let recurringMonthlyEquivalent = 0;
-
-        for (const schedule of billingSchedules) {
-            if (schedule.billing_cycle === "MONTHLY") {
-                recurringMonthlyEquivalent += schedule.amount;
-            }
-
-            if (schedule.billing_cycle === "QUARTERLY") {
-                recurringMonthlyEquivalent += schedule.amount / 3;
-            }
-
-            if (schedule.billing_cycle === "YEARLY") {
-                recurringMonthlyEquivalent += schedule.amount / 12;
-            }
-        }
-
-        // -------------------------------------------------------------
-        // 12. Commit
-        // -------------------------------------------------------------
+        // -----------------------------------------
+        // 8. Commit
+        // -----------------------------------------
 
         await connection.commit();
+
+
+        // -----------------------------------------
+        // 9. Response
+        // -----------------------------------------
 
         return {
             quotation_id: quotationId,
             fulfillment_order_id: fulfillmentOrder.id,
 
-            billing_type: billingType,
+            billing_type:
+                oneTimeItems.length > 0 &&
+                recurringItems.length > 0
+                    ? "HYBRID"
+                    : oneTimeItems.length > 0
+                        ? "ONE_TIME"
+                        : "RECURRING",
 
-            invoice: invoiceId
-                ? {
-                    id: invoiceId,
-                    invoice_number: invoiceNumber,
-                    subtotal: oneTimeSubtotal,
-                    tax_amount: oneTimeTax,
-                    total_amount: oneTimeTotal,
-                    status: "ISSUED"
-                }
-                : null,
+            invoice,
 
-            subscriptions: billingSchedules,
+            subscriptions,
 
             summary: {
-                one_time_total: Number(oneTimeTotal.toFixed(2)),
+                one_time_subtotal:
+                    Number(oneTimeSubtotal.toFixed(2)),
+
+                one_time_tax:
+                    Number(oneTimeTax.toFixed(2)),
+
+                one_time_total:
+                    Number(
+                        (oneTimeSubtotal + oneTimeTax)
+                            .toFixed(2)
+                    ),
+
                 recurring_monthly_equivalent:
-                    Number(recurringMonthlyEquivalent.toFixed(2)),
-                subscription_count: billingSchedules.length
+                    Number(
+                        subscriptions.reduce(
+                            (total, subscription) => {
+
+                                if (
+                                    subscription.billing_cycle ===
+                                    "MONTHLY"
+                                ) {
+                                    return total +
+                                        subscription.amount;
+                                }
+
+                                if (
+                                    subscription.billing_cycle ===
+                                    "QUARTERLY"
+                                ) {
+                                    return total +
+                                        subscription.amount / 3;
+                                }
+
+                                if (
+                                    subscription.billing_cycle ===
+                                    "YEARLY"
+                                ) {
+                                    return total +
+                                        subscription.amount / 12;
+                                }
+
+                                return total;
+                            },
+                            0
+                        ).toFixed(2)
+                    )
             }
         };
 
     } catch (error) {
+
         await connection.rollback();
+
         throw error;
 
     } finally {
+
         connection.release();
     }
 }
 
 
 /*
-|--------------------------------------------------------------------------
-| GET INVOICE
-|--------------------------------------------------------------------------
+====================================================
+GET INVOICE
+====================================================
 */
 
 async function getInvoiceById(invoiceId) {
+
     const [invoices] = await pool.execute(
         `SELECT *
          FROM invoices
@@ -411,16 +451,18 @@ async function getInvoiceById(invoiceId) {
 
     const invoice = invoices[0];
 
+
     const [items] = await pool.execute(
         `SELECT
             ii.*,
             p.name AS product_name
          FROM invoice_items ii
-         JOIN products p
+         LEFT JOIN products p
             ON ii.product_id = p.id
          WHERE ii.invoice_id = ?`,
         [invoiceId]
     );
+
 
     return {
         ...invoice,
@@ -430,16 +472,17 @@ async function getInvoiceById(invoiceId) {
 
 
 /*
-|--------------------------------------------------------------------------
-| GET BILLING SCHEDULE
-|--------------------------------------------------------------------------
+====================================================
+GET BILLING SCHEDULE
+====================================================
 */
 
 async function getBillingSchedule(scheduleId) {
-    const [schedules] = await pool.execute(
+
+    const [rows] = await pool.execute(
         `SELECT
             bs.*,
-            sp.name AS plan_name,
+            sp.name AS subscription_plan,
             sp.billing_cycle,
             sp.price AS plan_price
          FROM billing_schedules bs
@@ -449,21 +492,22 @@ async function getBillingSchedule(scheduleId) {
         [scheduleId]
     );
 
-    if (schedules.length === 0) {
+    if (rows.length === 0) {
         throw new Error("Billing schedule not found");
     }
 
-    return schedules[0];
+    return rows[0];
 }
 
 
 /*
-|--------------------------------------------------------------------------
-| GET BILLING FOR ORDER
-|--------------------------------------------------------------------------
+====================================================
+GET BILLING BY ORDER
+====================================================
 */
 
 async function getBillingByOrder(orderId) {
+
     const [invoices] = await pool.execute(
         `SELECT *
          FROM invoices
@@ -472,10 +516,11 @@ async function getBillingByOrder(orderId) {
         [orderId]
     );
 
+
     const [schedules] = await pool.execute(
         `SELECT
             bs.*,
-            sp.name AS plan_name,
+            sp.name AS subscription_plan,
             sp.billing_cycle
          FROM billing_schedules bs
          JOIN subscription_plans sp
@@ -485,30 +530,33 @@ async function getBillingByOrder(orderId) {
         [orderId]
     );
 
+
     return {
-        order_id: orderId,
         invoices,
-        billing_schedules: schedules
+        subscriptions: schedules
     };
 }
 
 
 /*
-|--------------------------------------------------------------------------
-| GENERATE RECURRING INVOICE
-|--------------------------------------------------------------------------
+====================================================
+GENERATE RECURRING INVOICE
+====================================================
 */
 
 async function generateRecurringInvoice(scheduleId) {
+
     const connection = await pool.getConnection();
 
     try {
+
         await connection.beginTransaction();
+
 
         const [schedules] = await connection.execute(
             `SELECT
                 bs.*,
-                sp.name AS plan_name,
+                sp.name AS subscription_plan,
                 sp.billing_cycle
              FROM billing_schedules bs
              JOIN subscription_plans sp
@@ -518,66 +566,71 @@ async function generateRecurringInvoice(scheduleId) {
             [scheduleId]
         );
 
+
         if (schedules.length === 0) {
             throw new Error("Billing schedule not found");
         }
 
+
         const schedule = schedules[0];
+
 
         if (schedule.status !== "ACTIVE") {
             throw new Error(
-                "Only ACTIVE billing schedules can generate invoices"
+                "Billing schedule is not active"
             );
         }
 
-        const invoiceNumber = generateInvoiceNumber();
 
-        const invoiceDate =
-            new Date(schedule.next_billing_date);
+        const invoiceNumber =
+            generateInvoiceNumber();
 
-        const dueDate = new Date(invoiceDate);
-        dueDate.setDate(dueDate.getDate() + 30);
+
+        const invoiceDate = new Date();
+
+
+        const dueDate = new Date();
+
+        dueDate.setDate(
+            dueDate.getDate() + 30
+        );
+
 
         const subtotal =
             Number(schedule.amount);
 
-        const taxAmount = 0;
 
-        const totalAmount =
-            subtotal + taxAmount;
+        const [invoiceResult] =
+            await connection.execute(
+                `INSERT INTO invoices
+                (
+                    order_id,
+                    invoice_number,
+                    invoice_date,
+                    due_date,
+                    subtotal,
+                    tax_amount,
+                    total_amount,
+                    status
+                )
+                VALUES (?, ?, ?, ?, ?, 0, ?, 'ISSUED')`,
+                [
+                    schedule.order_id,
+                    invoiceNumber,
+                    formatDate(invoiceDate),
+                    formatDate(dueDate),
+                    subtotal,
+                    subtotal
+                ]
+            );
 
-        const [invoiceResult] = await connection.execute(
-            `INSERT INTO invoices
-            (
-                order_id,
-                invoice_number,
-                invoice_date,
-                due_date,
-                subtotal,
-                tax_amount,
-                total_amount,
-                status
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'ISSUED')`,
-            [
-                schedule.order_id,
-                invoiceNumber,
-                formatDate(invoiceDate),
-                formatDate(dueDate),
-                subtotal,
-                taxAmount,
-                totalAmount
-            ]
-        );
 
-        const invoiceId = invoiceResult.insertId;
-
-        // Move next billing date forward
         const nextBillingDate =
             addBillingPeriod(
-                invoiceDate,
+                schedule.next_billing_date,
                 schedule.billing_cycle
             );
+
 
         await connection.execute(
             `UPDATE billing_schedules
@@ -589,23 +642,27 @@ async function generateRecurringInvoice(scheduleId) {
             ]
         );
 
+
         await connection.commit();
 
+
         return {
-            invoice_id: invoiceId,
+            invoice_id: invoiceResult.insertId,
             invoice_number: invoiceNumber,
-            billing_schedule_id: scheduleId,
-            amount: totalAmount,
-            invoice_date: formatDate(invoiceDate),
-            next_billing_date: formatDate(nextBillingDate),
-            status: "ISSUED"
+            schedule_id: scheduleId,
+            amount: subtotal,
+            next_billing_date:
+                formatDate(nextBillingDate)
         };
 
     } catch (error) {
+
         await connection.rollback();
+
         throw error;
 
     } finally {
+
         connection.release();
     }
 }
