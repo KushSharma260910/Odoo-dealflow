@@ -1,6 +1,16 @@
-const app = require('./src/app');
-const { testConnection } = require('./src/config/db');
+require("dotenv").config();
 
-const port = Number(process.env.PORT || 5000);
-testConnection().catch(error => console.warn(`MySQL connection unavailable: ${error.message}`));
-app.listen(port, () => console.log(`DealFlow360 API listening on port ${port}`));
+const app = require("./src/app");
+const { testConnection } = require("./src/config/db");
+
+const PORT = 5000;
+
+async function startServer() {
+    await testConnection();
+
+    app.listen(PORT, () => {
+        console.log(`🚀 DealFlow360 server running on http://localhost:${PORT}`);
+    });
+}
+
+startServer();

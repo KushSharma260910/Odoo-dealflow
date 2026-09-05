@@ -1,7 +1,18 @@
 const router = require('express').Router();
 const c = require('../controllers/customerPortal.controller');
-router.get('/customer/quotations', c.quotations); router.get('/customer/quotations/:id', c.quotation);
-router.get('/customer/negotiations/:id', c.negotiations); router.post('/customer/negotiations/:id/message', c.message);
-router.post('/customer/quotations/:id/accept', c.decision); router.post('/customer/quotations/:id/reject', c.decision);
-router.post('/customer/quotations/:id/requests', c.createRequest); router.get('/customer/quotations/:id/requests', c.requests);
+const billingController = require('../controllers/billing.controller');
+
+router.get('/quotations', c.quotations);
+router.get('/quotations/:id', c.quotation);
+router.get('/negotiations/:id', c.negotiations);
+router.post('/negotiations/:id/message', c.message);
+router.post('/quotations/:id/accept', c.decision);
+router.post('/quotations/:id/reject', c.decision);
+router.post('/quotations/:id/requests', c.createRequest);
+router.get('/quotations/:id/requests', c.requests);
+
+router.get('/invoices', billingController.customerInvoices);
+router.get('/invoices/:id', billingController.customerInvoice);
+router.get('/billing/:quotationId', billingController.customerBilling);
+
 module.exports = router;

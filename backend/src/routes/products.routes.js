@@ -1,4 +1,12 @@
 const router = require('express').Router();
 const c = require('../controllers/product.controller');
-router.post('/products', c.create); router.get('/products', c.list); router.get('/products/:id', c.get); router.put('/products/:id', c.update); router.delete('/products/:id', c.remove);
+const recommendationController = require('../controllers/recommendation.controller');
+
+router.post('/', c.create);
+router.get('/', c.list);
+router.get('/:id', c.get);
+router.put('/:id', c.update);
+router.delete('/:id', c.remove);
+router.get('/:id/recommendations', recommendationController.product);
+
 module.exports = router;

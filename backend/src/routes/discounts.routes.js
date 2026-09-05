@@ -1,4 +1,9 @@
 const router = require('express').Router();
 const c = require('../controllers/discount.controller');
-router.post('/discounts/rules', c.create); router.get('/discounts/rules', c.list); router.put('/discounts/rules/:id', c.update); router.post('/discounts/evaluate/:quotationId', c.evaluate);
+
+router.post('/rules', c.create);
+router.get('/rules', c.list);
+router.put('/rules/:id', c.update);
+router.post('/evaluate/:quotationId', c.evaluate);
+
 module.exports = router;
