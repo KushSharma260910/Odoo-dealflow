@@ -7,6 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(require('cors')());
 app.use(authMiddleware.optional);
+app.get('/', (req, res) => res.json({ success: true, service: 'dealflow360-api', message: 'API is running', health: '/health' }));
 app.get('/health', (req, res) => res.json({ success: true, service: 'dealflow360-api' }));
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api', require('./routes/users.routes'));
