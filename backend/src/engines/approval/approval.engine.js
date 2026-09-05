@@ -1,7 +1,10 @@
 const { pool } = require("../../config/db");
 const { getApprovalRequirement } = require("./approval.rules");
 
-async function createApprovalForQuotation(quotationId) {
+async function createApprovalForQuotation(
+    quotationId,
+    negotiationLineRequestId = null
+) {
 
     // Get quotation risk information
     const [quotations] = await pool.execute(
@@ -31,7 +34,10 @@ async function createApprovalForQuotation(quotationId) {
         throw new Error("Invalid risk level");
     }
 
-    // LOW → automatic approval
+    // ==========================================
+    // LOW → AUTOMATIC APPROVAL
+    // ==========================================
+
     if (requirement.decision === "AUTO_APPROVE") {
 
         await pool.execute(
@@ -44,6 +50,7 @@ async function createApprovalForQuotation(quotationId) {
 
         return {
             quotation_id: quotationId,
+            negotiation_line_request_id: negotiationLineRequestId,
             risk_score: Number(quotation.risk_score),
             risk_level: quotation.risk_level,
             decision: "AUTO_APPROVE",
@@ -52,7 +59,10 @@ async function createApprovalForQuotation(quotationId) {
         };
     }
 
-    // CRITICAL → blocked
+    // ==========================================
+    // CRITICAL → BLOCK
+    // ==========================================
+
     if (requirement.decision === "BLOCK") {
 
         await pool.execute(
@@ -65,6 +75,7 @@ async function createApprovalForQuotation(quotationId) {
 
         return {
             quotation_id: quotationId,
+            negotiation_line_request_id: negotiationLineRequestId,
             risk_score: Number(quotation.risk_score),
             risk_level: quotation.risk_level,
             decision: "BLOCK",
@@ -73,18 +84,51 @@ async function createApprovalForQuotation(quotationId) {
         };
     }
 
-    // Check if approval already exists
+    // ==========================================
+    // CHECK EXISTING PENDING APPROVAL
+    // ==========================================
+
+    let existingQuery;
+    let existingParams;
+
+    if (negotiationLineRequestId) {
+
+        existingQuery = `
+            SELECT id
+            FROM approvals
+            WHERE quotation_id = ?
+              AND negotiation_line_request_id = ?
+              AND status = 'PENDING'
+        `;
+
+        existingParams = [
+            quotationId,
+            negotiationLineRequestId
+        ];
+
+    } else {
+
+        existingQuery = `
+            SELECT id
+            FROM approvals
+            WHERE quotation_id = ?
+              AND negotiation_line_request_id IS NULL
+              AND status = 'PENDING'
+        `;
+
+        existingParams = [quotationId];
+    }
+
     const [existingApprovals] = await pool.execute(
-        `SELECT id
-         FROM approvals
-         WHERE quotation_id = ?
-           AND status = 'PENDING'`,
-        [quotationId]
+        existingQuery,
+        existingParams
     );
 
     if (existingApprovals.length > 0) {
+
         return {
             quotation_id: quotationId,
+            negotiation_line_request_id: negotiationLineRequestId,
             risk_score: Number(quotation.risk_score),
             risk_level: quotation.risk_level,
             decision: requirement.decision,
@@ -94,21 +138,30 @@ async function createApprovalForQuotation(quotationId) {
         };
     }
 
-    // Create approval request
+    // ==========================================
+    // CREATE APPROVAL REQUEST
+    // ==========================================
+
+    const reason = negotiationLineRequestId
+        ? `Negotiation request #${negotiationLineRequestId} has risk score ${quotation.risk_score} and requires ${requirement.role} approval`
+        : `Risk score ${quotation.risk_score} requires ${requirement.role} approval`;
+
     const [result] = await pool.execute(
         `INSERT INTO approvals
         (
             quotation_id,
+            negotiation_line_request_id,
             approver_id,
             approval_level,
             status,
             reason
         )
-        VALUES (?, NULL, ?, 'PENDING', ?)`,
+        VALUES (?, ?, NULL, ?, 'PENDING', ?)`,
         [
             quotationId,
+            negotiationLineRequestId,
             requirement.role,
-            `Risk score ${quotation.risk_score} requires ${requirement.role} approval`
+            reason
         ]
     );
 
@@ -122,6 +175,7 @@ async function createApprovalForQuotation(quotationId) {
 
     return {
         quotation_id: quotationId,
+        negotiation_line_request_id: negotiationLineRequestId,
         risk_score: Number(quotation.risk_score),
         risk_level: quotation.risk_level,
         decision: requirement.decision,

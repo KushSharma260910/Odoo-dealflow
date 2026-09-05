@@ -10,6 +10,7 @@ const approvalRoutes = require("./routes/approvals.routes");
 const riskRoutes = require("./routes/risk.routes");
 const warehouseRoutes = require("./routes/warehouses.routes");
 const recommendationRoutes =require("./routes/recommendations.routes");
+const negotiationRoutes = require("./routes/negotiations.routes");
     
 
 const app = express();
@@ -35,6 +36,10 @@ app.use("/api/approvals", approvalRoutes);
 app.use("/api", riskRoutes);
 app.use("/api/warehouses", warehouseRoutes);
 app.use("/api/recommendations", recommendationRoutes);
+app.use(
+    "/api/negotiations",
+    negotiationRoutes
+);
 
 
 module.exports = app;
