@@ -73,14 +73,14 @@ export const Portal = () => {
 
   const handleCreateOrderRequest = async (e) => {
     e.preventDefault();
-    if (!user?.customer_id || !selectedProductId) return;
+    if (!user || !selectedProductId) return;
     try {
       setSubmitting(true);
       setError(null);
 
       const qRes = await quotationService.create({
-        customer_id: user.customer_id,
-        sales_rep_id: 1,
+        customer_id: user.customer_id || undefined,
+        sales_rep_id: undefined,
       });
 
       if (qRes.success && qRes.data?.id) {
