@@ -34,7 +34,7 @@ async function createCustomer(req, res) {
     }
 }
 
-async function getAllCustomers(req, res) {
+async function getAllCustomers( res) {
     try {
         const customers = await customerService.getAllCustomers();
 

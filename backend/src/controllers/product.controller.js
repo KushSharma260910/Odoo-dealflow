@@ -41,7 +41,7 @@ async function createProduct(req, res) {
     }
 }
 
-async function getAllProducts(req, res) {
+async function getAllProducts( res) {
     try {
         const products = await productService.getAllProducts();
 

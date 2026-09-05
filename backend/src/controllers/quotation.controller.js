@@ -48,7 +48,7 @@ async function createQuotation(req, res) {
 
 
 // Get all
-async function getAllQuotations(req, res) {
+async function getAllQuotations(res) {
 
     try {
 
