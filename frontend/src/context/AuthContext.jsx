@@ -42,6 +42,18 @@ export const AuthProvider = ({ children }) => {
     throw new Error(res.message || 'Login failed');
   };
 
+  const register = async (data) => {
+    const res = await authService.register(data);
+    if (res.success && res.token && res.user) {
+      setToken(res.token);
+      setUser(res.user);
+      localStorage.setItem('dealflow_token', res.token);
+      localStorage.setItem('dealflow_user', JSON.stringify(res.user));
+      return res.user;
+    }
+    throw new Error(res.message || 'Registration failed');
+  };
+
   const logout = () => {
     authService.logout();
     setToken(null);
@@ -57,6 +69,7 @@ export const AuthProvider = ({ children }) => {
         role: user?.role || null,
         loading,
         login,
+        register,
         logout,
       }}
     >

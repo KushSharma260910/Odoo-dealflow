@@ -4,32 +4,63 @@ const { generateToken } = require("../utils/jwt");
 
 async function register(req, res, next) {
   try {
-    const { name, email, password, role = "CUSTOMER", customer_id } = req.body;
-    if (!name || !email || !password)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Name, email and password are required",
-        });
-    if (role !== "CUSTOMER")
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Only customer self-registration is allowed",
-        });
-    const passwordHash = await bcrypt.hash(password, 10);
-    const [result] = await pool.execute(
-      "INSERT INTO users (customer_id, name, email, password, role) VALUES (?, ?, ?, ?, ?)",
-      [customer_id || null, name, email, passwordHash, role],
-    );
-    return res
-      .status(201)
-      .json({
-        success: true,
-        user: { id: result.insertId, name, email, role },
+    const { name, company_name, email, password, role = "CUSTOMER" } = req.body;
+    const cleanEmail = (email || "").toString().trim().toLowerCase();
+    const cleanPassword = (password || "").toString().trim();
+
+    if (!name || !cleanEmail || !cleanPassword)
+      return res.status(400).json({
+        success: false,
+        message: "Name, email and password are required",
       });
+
+    if (role !== "CUSTOMER")
+      return res.status(403).json({
+        success: false,
+        message: "Only customer self-registration is allowed",
+      });
+
+    const [existing] = await pool.execute(
+      "SELECT id FROM users WHERE LOWER(TRIM(email)) = ?",
+      [cleanEmail]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email address already exists. Please sign in.",
+      });
+    }
+
+    // 1. Create Customer Account in customers table
+    const [custResult] = await pool.execute(
+      "INSERT INTO customers (name, email, company_name, tier, status) VALUES (?, ?, ?, 'BRONZE', 'ACTIVE')",
+      [name, cleanEmail, company_name || null]
+    );
+    const newCustomerId = custResult.insertId;
+
+    // 2. Create User Credentials in users table
+    const passwordHash = await bcrypt.hash(cleanPassword, 10);
+    const [userResult] = await pool.execute(
+      "INSERT INTO users (customer_id, name, email, password, role, status) VALUES (?, ?, ?, ?, 'CUSTOMER', 'ACTIVE')",
+      [newCustomerId, name, cleanEmail, passwordHash]
+    );
+
+    const user = {
+      id: userResult.insertId,
+      customer_id: newCustomerId,
+      name,
+      email: cleanEmail,
+      role: "CUSTOMER",
+    };
+
+    const token = generateToken(user);
+
+    return res.status(201).json({
+      success: true,
+      message: "Customer account created successfully",
+      token,
+      user,
+    });
   } catch (error) {
     next(error);
   }

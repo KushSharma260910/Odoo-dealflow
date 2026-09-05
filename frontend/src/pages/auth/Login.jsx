@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Mail, ArrowRight, Shield } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Shield, User, Building } from 'lucide-react';
 
 export const Login = () => {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
 
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -18,20 +22,33 @@ export const Login = () => {
     setError(null);
 
     try {
-      const user = await login(email.trim(), password.trim());
-      if (user.role === 'CUSTOMER') {
+      if (isSignUp) {
+        if (password !== confirmPassword) {
+          throw new Error('Passwords do not match');
+        }
+        await register({
+          name: name.trim(),
+          company_name: companyName.trim(),
+          email: email.trim(),
+          password: password.trim(),
+        });
         navigate('/customer');
-      } else if (user.role === 'FINANCE') {
-        navigate('/finance/invoices');
-      } else if (user.role === 'OPERATIONS') {
-        navigate('/operations/fulfillment');
-      } else if (user.role === 'SALES_MANAGER') {
-        navigate('/manager/approvals');
       } else {
-        navigate('/sales/dashboard');
+        const user = await login(email.trim(), password.trim());
+        if (user.role === 'CUSTOMER') {
+          navigate('/customer');
+        } else if (user.role === 'FINANCE') {
+          navigate('/finance/invoices');
+        } else if (user.role === 'OPERATIONS') {
+          navigate('/operations/fulfillment');
+        } else if (user.role === 'SALES_MANAGER') {
+          navigate('/manager/approvals');
+        } else {
+          navigate('/sales/dashboard');
+        }
       }
     } catch (err) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -49,7 +66,11 @@ export const Login = () => {
         </div>
 
         <div className="bg-white rounded-2xl p-8 shadow-2xl border border-slate-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Sign in to your workspace</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900">
+              {isSignUp ? 'Create Customer Account' : 'Sign in to your workspace'}
+            </h2>
+          </div>
 
           {error && (
             <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold">
@@ -58,9 +79,46 @@ export const Login = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Your Full Name *
+                  </label>
+                  <div className="relative">
+                    <User className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Jane Doe"
+                      className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Company Name
+                  </label>
+                  <div className="relative">
+                    <Building className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="Acme Global Inc"
+                      className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                Email Address
+                Email Address *
               </label>
               <div className="relative">
                 <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
@@ -70,14 +128,14 @@ export const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                Password
+                Password *
               </label>
               <div className="relative">
                 <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
@@ -87,23 +145,57 @@ export const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
             </div>
+
+            {isSignUp && (
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Confirm Password *
+                </label>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full mt-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-colors text-sm shadow-md shadow-blue-600/20"
             >
-              <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
+              <span>{loading ? 'Processing...' : isSignUp ? 'Create Account & Order' : 'Sign In'}</span>
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-100 text-center text-xs text-gray-500">
-            <span className="inline-flex items-center text-slate-500">
+          <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError(null);
+              }}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              {isSignUp
+                ? 'Already have an account? Sign In →'
+                : 'New Customer? Create your account & start ordering →'}
+            </button>
+          </div>
+
+          <div className="mt-4 text-center text-xs text-gray-400">
+            <span className="inline-flex items-center">
               <Shield className="w-3.5 h-3.5 mr-1 text-slate-400" />
               Role-based JWT Secure Authentication
             </span>
