@@ -11,6 +11,8 @@ export const Customers = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -23,6 +25,10 @@ export const Customers = () => {
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const fetchCustomers = async () => {
     try {
@@ -99,11 +105,19 @@ export const Customers = () => {
       .includes(search.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Customer Accounts</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold text-gray-900">Customer Accounts</h1>
+            <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full border border-indigo-200">
+              {customers.length} Customers Total
+            </span>
+          </div>
           <p className="text-sm text-gray-500">Manage B2B customer profiles and pricing tiers</p>
         </div>
         <button
@@ -115,7 +129,7 @@ export const Customers = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
           <input
@@ -125,6 +139,9 @@ export const Customers = () => {
             placeholder="Search by Name, Email, Company..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm"
           />
+        </div>
+        <div className="text-xs font-semibold text-gray-500">
+          Showing {paginated.length} of {filtered.length} customers
         </div>
       </div>
 
@@ -147,7 +164,7 @@ export const Customers = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filtered.map((c) => (
+                {paginated.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-bold text-gray-900">{c.name}</td>
                     <td className="px-6 py-4 text-gray-700">{c.company_name || '—'}</td>
@@ -168,6 +185,29 @@ export const Customers = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <span className="text-xs text-gray-500 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Previous
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}

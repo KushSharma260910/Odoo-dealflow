@@ -12,6 +12,8 @@ export const Products = () => {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -25,6 +27,10 @@ export const Products = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, categoryFilter]);
 
   const fetchProducts = async () => {
     try {
@@ -110,11 +116,19 @@ export const Products = () => {
   );
   const categories = [...new Map(products.filter((p) => p.category_id != null).map((p) => [String(p.category_id), p.category_name || `Category #${p.category_id}`])).entries()];
 
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
+            <span className="bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1 rounded-full border border-purple-200">
+              {products.length} Products Total
+            </span>
+          </div>
           <p className="text-sm text-gray-500">Configure products, base prices, costs, and categories</p>
         </div>
         <button
@@ -126,30 +140,35 @@ export const Products = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by Product Name or SKU..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm"
-          />
+      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by Product Name or SKU..."
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+          </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+          >
+            <option value="ALL">All Categories</option>
+            {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+          {(search || categoryFilter !== 'ALL') && (
+            <button type="button" onClick={() => { setSearch(''); setCategoryFilter('ALL'); }} className="text-sm text-blue-600 font-semibold px-2">
+              Reset
+            </button>
+          )}
         </div>
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
-        >
-          <option value="ALL">All Categories</option>
-          {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
-        {(search || categoryFilter !== 'ALL') && (
-          <button type="button" onClick={() => { setSearch(''); setCategoryFilter('ALL'); }} className="text-sm text-blue-600 font-semibold px-2">
-            Reset
-          </button>
-        )}
+        <div className="text-xs font-semibold text-gray-500">
+          Showing {paginated.length} of {filtered.length} products
+        </div>
       </div>
 
       {error && <div className="p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
@@ -172,7 +191,7 @@ export const Products = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filtered.map((p) => (
+                {paginated.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">{p.sku}</td>
                     <td className="px-6 py-4 font-semibold text-gray-900">{p.name}</td>
@@ -194,6 +213,29 @@ export const Products = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <span className="text-xs text-gray-500 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Previous
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}

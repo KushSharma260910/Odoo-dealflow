@@ -12,10 +12,16 @@ export const Quotations = () => {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   useEffect(() => {
     fetchQuotations();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
 
   const fetchQuotations = async () => {
     try {
@@ -40,13 +46,21 @@ export const Quotations = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   if (loading) return <LoadingSpinner label="Loading quotations..." />;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quotations</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold text-gray-900">Quotations</h1>
+            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200">
+              {quotations.length} Quotations Total
+            </span>
+          </div>
           <p className="text-sm text-gray-500">Manage active sales proposals and deal pipeline</p>
         </div>
         <Link
@@ -71,21 +85,26 @@ export const Quotations = () => {
           />
         </div>
 
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-gray-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="DRAFT">DRAFT</option>
-            <option value="SENT">SENT</option>
-            <option value="PENDING_APPROVAL">PENDING APPROVAL</option>
-            <option value="APPROVED">APPROVED</option>
-            <option value="REJECTED">REJECTED</option>
-            <option value="CONFIRMED">CONFIRMED</option>
-          </select>
+        <div className="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center space-x-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="DRAFT">DRAFT</option>
+              <option value="SENT">SENT</option>
+              <option value="PENDING_APPROVAL">PENDING APPROVAL</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+              <option value="CONFIRMED">CONFIRMED</option>
+            </select>
+          </div>
+          <span className="text-xs font-semibold text-gray-500">
+            Showing {paginated.length} of {filtered.length} quotations
+          </span>
         </div>
       </div>
 
@@ -122,7 +141,7 @@ export const Quotations = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filtered.map((q) => (
+                {paginated.map((q) => (
                   <tr key={q.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">#QT-{q.id}</td>
                     <td className="px-6 py-4 font-semibold text-gray-900">{q.customer_name || `Customer #${q.customer_id}`}</td>
@@ -152,6 +171,29 @@ export const Quotations = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <span className="text-xs text-gray-500 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Previous
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}

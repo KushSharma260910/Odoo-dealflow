@@ -42,6 +42,9 @@ async function byQuotation(req, res, next) {
 async function customerInvoices(req, res, next) {
   try {
     if (!req.user) return failure(res, "Authentication required", 401);
+    if (['ADMIN', 'FINANCE', 'SALES_MANAGER', 'OPERATIONS', 'SALES_REP'].includes(req.user.role)) {
+      return success(res, await invoice.listAll());
+    }
     const customerId = await getCustomerId(req, res);
     if (!customerId) return failure(res, "Customer account not found", 404);
     return success(res, await invoice.byCustomer(customerId));

@@ -10,10 +10,16 @@ export const Invoices = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   useEffect(() => {
     fetchInvoices();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const fetchInvoices = async () => {
     try {
@@ -32,29 +38,42 @@ export const Invoices = () => {
   if (loading) return <LoadingSpinner label="Loading customer invoices..." />;
 
   const filtered = invoices.filter((inv) =>
-    (inv.invoice_number || '').toLowerCase().includes(search.toLowerCase())
+    (inv.invoice_number || '').toLowerCase().includes(search.toLowerCase()) ||
+    (inv.customer_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    `ord-${inv.order_id}`.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
+              {invoices.length} Invoices Total
+            </span>
+          </div>
           <p className="text-sm text-gray-500">View generated customer billing records and payment statuses</p>
         </div>
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by Invoice Number..."
+            placeholder="Search by Invoice #, Customer, Order..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm"
           />
+        </div>
+        <div className="text-xs font-semibold text-gray-500">
+          Showing {paginated.length} of {filtered.length} invoices
         </div>
       </div>
 
@@ -72,6 +91,7 @@ export const Invoices = () => {
               <thead className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
                 <tr>
                   <th className="px-6 py-3.5">Invoice #</th>
+                  <th className="px-6 py-3.5">Customer</th>
                   <th className="px-6 py-3.5">Order ID</th>
                   <th className="px-6 py-3.5">Type</th>
                   <th className="px-6 py-3.5">Amount</th>
@@ -80,9 +100,10 @@ export const Invoices = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filtered.map((inv) => (
+                {paginated.map((inv) => (
                   <tr key={inv.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">{inv.invoice_number}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">{inv.customer_name || '—'}</td>
                     <td className="px-6 py-4 font-mono text-gray-600">#ORD-{inv.order_id}</td>
                     <td className="px-6 py-4 font-semibold text-xs text-purple-700">{inv.invoice_type}</td>
                     <td className="px-6 py-4 font-bold text-gray-900">
@@ -98,6 +119,29 @@ export const Invoices = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <span className="text-xs text-gray-500 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Previous
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-100"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}

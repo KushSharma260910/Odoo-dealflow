@@ -5,6 +5,17 @@ async function findById(id) {
 	return rows[0] || null;
 }
 
+async function listAll() {
+	return query(
+		`SELECT i.*, o.quotation_id, c.name AS customer_name
+		 FROM invoices i
+		 JOIN orders o ON o.id = i.order_id
+		 JOIN quotations q ON q.id = o.quotation_id
+		 JOIN customers c ON c.id = q.customer_id
+		 ORDER BY i.created_at DESC`
+	);
+}
+
 async function byQuotation(quotationId) {
 	return query('SELECT * FROM invoices WHERE order_id IN (SELECT id FROM orders WHERE quotation_id = ?) ORDER BY created_at DESC', [quotationId]);
 }
@@ -24,4 +35,4 @@ async function create(data) {
 	return findById(result.insertId);
 }
 
-module.exports = { findById, byQuotation, byCustomer, create };
+module.exports = { findById, listAll, byQuotation, byCustomer, create };
