@@ -1,23 +1,28 @@
-const express = require("express");
-const cors = require("cors");
-
-const authRoutes = require("./routes/auth.routes");
+require('dotenv').config();
+const express = require('express');
+const authMiddleware = require('./middleware/authMiddleware');
+const errorMiddleware = require('./middleware/errorMiddleware');
 
 const app = express();
-
-app.use(cors());
 app.use(express.json());
-
-app.get("/api/health", (req, res) => {
-    res.json({
-        success: true,
-        message: "DealFlow360 Backend is running 🚀"
-    });
-});
-
-
-// Authentication APIs
-app.use("/api/auth", authRoutes);
-
+app.use(require('cors')());
+app.use(authMiddleware.optional);
+app.get('/health', (req, res) => res.json({ success: true, service: 'dealflow360-api' }));
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api', require('./routes/users.routes'));
+app.use('/api', require('./routes/customers.routes'));
+app.use('/api', require('./routes/products.routes'));
+app.use('/api', require('./routes/quotations.routes'));
+app.use('/api', require('./routes/discounts.routes'));
+app.use('/api', require('./routes/approvals.routes'));
+app.use('/api', require('./routes/risk.routes'));
+app.use('/api', require('./routes/warehouses.routes'));
+app.use('/api', require('./routes/negotiations.routes'));
+app.use('/api', require('./routes/customerPortal.routes'));
+app.use('/api', require('./routes/billing.routes'));
+app.use('/api', require('./routes/recommendations.routes'));
+app.use('/api', require('./routes/dashboard.routes'));
+app.use('/api', require('./routes/audit.routes'));
+app.use(errorMiddleware);
 
 module.exports = app;

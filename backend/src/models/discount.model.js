@@ -1,0 +1,6 @@
+const { query } = require('../config/db');
+async function list() { return query('SELECT dr.*, pc.name AS category_name FROM discount_rules dr LEFT JOIN product_categories pc ON pc.id = dr.category_id ORDER BY dr.customer_tier, dr.category_id'); }
+async function create(data) { const result = await query('INSERT INTO discount_rules (customer_tier, category_id, max_discount_percent, approval_required_above, active) VALUES (?, ?, ?, ?, ?)', [data.customer_tier, data.category_id || null, data.max_discount_percent, data.approval_required_above, data.active ?? true]); return findById(result.insertId); }
+async function findById(id) { const rows = await query('SELECT * FROM discount_rules WHERE id = ?', [id]); return rows[0] || null; }
+async function update(id, data) { await query('UPDATE discount_rules SET customer_tier = COALESCE(?, customer_tier), category_id = COALESCE(?, category_id), max_discount_percent = COALESCE(?, max_discount_percent), approval_required_above = COALESCE(?, approval_required_above), active = COALESCE(?, active) WHERE id = ?', [data.customer_tier ?? null, data.category_id ?? null, data.max_discount_percent ?? null, data.approval_required_above ?? null, data.active ?? null, id]); return findById(id); }
+module.exports = { list, create, findById, update };

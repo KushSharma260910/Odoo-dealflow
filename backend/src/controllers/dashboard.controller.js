@@ -1,0 +1,8 @@
+const { query } = require('../config/db');
+const { success } = require('../utils/response');
+async function overview(req, res, next) { try { const rows = await query('SELECT (SELECT COUNT(*) FROM quotations) quotations, (SELECT COUNT(*) FROM orders) orders, (SELECT COUNT(*) FROM customers WHERE status = \'ACTIVE\') customers, (SELECT COUNT(*) FROM deal_health_events WHERE resolved = FALSE) open_risks'); return success(res, rows[0]); } catch (e) { next(e); } }
+async function sales(req, res, next) { try { return success(res, await query('SELECT u.id, u.name, COUNT(q.id) quotation_count, COALESCE(SUM(q.total_amount), 0) total_value FROM users u LEFT JOIN quotations q ON q.sales_rep_id = u.id WHERE u.role = \'SALES_REP\' GROUP BY u.id, u.name ORDER BY total_value DESC')); } catch (e) { next(e); } }
+async function deals(req, res, next) { try { return success(res, await query('SELECT status, COUNT(*) count, COALESCE(SUM(total_amount), 0) total_amount FROM quotations GROUP BY status ORDER BY count DESC')); } catch (e) { next(e); } }
+async function risks(req, res, next) { try { return success(res, await query('SELECT severity, COUNT(*) count FROM deal_health_events WHERE resolved = FALSE GROUP BY severity ORDER BY FIELD(severity, \'CRITICAL\', \'HIGH\', \'MEDIUM\', \'LOW\')')); } catch (e) { next(e); } }
+async function revenue(req, res, next) { try { return success(res, await query('SELECT DATE_FORMAT(created_at, \'%Y-%m\') period, SUM(amount) amount FROM invoices WHERE status <> \'CANCELLED\' GROUP BY period ORDER BY period')); } catch (e) { next(e); } }
+module.exports = { overview, sales, deals, risks, revenue };

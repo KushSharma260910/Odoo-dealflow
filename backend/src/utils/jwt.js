@@ -1,26 +1,11 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || "dealflow360_secret";
+const secret = process.env.JWT_SECRET || 'dealflow360_secret';
 
 function generateToken(user) {
-    return jwt.sign(
-        {
-            id: user.id,
-            email: user.email,
-            role: user.role
-        },
-        JWT_SECRET,
-        {
-            expiresIn: "1d"
-        }
-    );
+	return jwt.sign({ id: user.id, customer_id: user.customer_id || null, email: user.email, role: user.role }, secret, { expiresIn: '1d' });
 }
 
-function verifyToken(token) {
-    return jwt.verify(token, JWT_SECRET);
-}
+function verifyToken(token) { return jwt.verify(token, secret); }
 
-module.exports = {
-    generateToken,
-    verifyToken
-};
+module.exports = { generateToken, verifyToken };

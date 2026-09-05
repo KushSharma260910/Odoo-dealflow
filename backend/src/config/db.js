@@ -1,27 +1,26 @@
-const mysql = require("mysql2/promise");
+const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-    host: "localhost",
-    port: 3306,
-    user: "root",
-    password: "Piyush@181745",
-    database: "dealflow360",
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+	host: process.env.DB_HOST || 'localhost',
+	port: Number(process.env.DB_PORT || 3306),
+	user: process.env.DB_USER || 'root',
+	password: process.env.DB_PASSWORD || '',
+	database: process.env.DB_NAME || 'dealflow360',
+	waitForConnections: true,
+	connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+	decimalNumbers: true,
+	queueLimit: 0
 });
 
 async function testConnection() {
-    try {
-        const connection = await pool.getConnection();
-        console.log("✅ MySQL connected successfully");
-        connection.release();
-    } catch (error) {
-        console.error("❌ MySQL connection failed:", error.message);
-    }
+	const connection = await pool.getConnection();
+	connection.release();
+	return true;
 }
 
-module.exports = {
-    pool,
-    testConnection
-};
+async function query(sql, params = []) {
+	const [rows] = await pool.execute(sql, params);
+	return rows;
+}
+
+module.exports = { pool, query, testConnection };
