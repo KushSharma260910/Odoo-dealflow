@@ -18,7 +18,7 @@ export const Login = () => {
     setError(null);
 
     try {
-      const user = await login(email, password);
+      const user = await login(email.trim(), password.trim());
       if (user.role === 'CUSTOMER') {
         navigate('/customer');
       } else if (user.role === 'FINANCE') {
