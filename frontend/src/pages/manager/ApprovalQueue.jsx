@@ -306,29 +306,3 @@ export const ApprovalQueue = () => {
     </div>
   );
 };
-              placeholder="e.g. Approved special 15% discount for enterprise customer."
-              className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex justify-end space-x-3 pt-2">
-            <button
-              onClick={() => setSelectedApproval(null)}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirmDecision}
-              disabled={actionLoading}
-              className={`px-4 py-2 text-white rounded-lg text-sm font-semibold shadow-sm ${
-                actionType === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-              }`}
-            >
-              {actionLoading ? 'Processing...' : actionType === 'APPROVE' ? 'Confirm Approval' : 'Confirm Rejection'}
-            </button>
-          </div>
-        </div>
-      </Modal>
-    </div>
-  );
-};
