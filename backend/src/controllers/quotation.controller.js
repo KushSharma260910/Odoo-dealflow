@@ -93,7 +93,13 @@ async function removeItem(req, res, next) {
 }
 async function submit(req, res, next) {
   try {
-    const row = await service.submit(req.params.id, req.user?.id);
+    const id = req.params.id;
+    await service.recalculate(id);
+    await require("../engines/risk/risk.engine").analyze(id);
+    await require("../engines/discount/discount.engine").evaluate(id);
+    await require("../engines/approval/approval.engine").createForQuotation(id);
+
+    const row = await service.submit(id, req.user?.id);
     return row ? success(res, row) : failure(res, "Quotation not found", 404);
   } catch (e) {
     next(e);

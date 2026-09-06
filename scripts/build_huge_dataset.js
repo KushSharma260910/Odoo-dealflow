@@ -566,17 +566,45 @@ for (let i = 1; i <= 20; i++) {
 }
 
 // ---------------------------------------------------------
-// 20. APPROVALS (30 Records: IDs 1 to 30)
+// 20. APPROVALS (Linked to Risk Levels: CRITICAL -> ADMIN, HIGH -> MANAGER/FINANCE, MEDIUM -> MANAGER)
 // ---------------------------------------------------------
 const approvalSqls = [];
-for (let i = 1; i <= 30; i++) {
-  const qId = 160 + i;
-  const role = i % 3 === 0 ? 'ADMIN' : i % 2 === 0 ? 'FINANCE' : 'SALES_MANAGER';
-  const status = i % 5 === 0 ? 'REJECTED' : i % 2 === 0 ? 'APPROVED' : 'PENDING';
-  const sql = `INSERT INTO approvals (id, quotation_id, approval_chain_id, approval_level, required_role, status, approver_id, reason) VALUES (${i}, ${qId}, 1, 1, ${esc(role)}, ${esc(status)}, 13, 'Automated governance review step');`;
-  approvalSqls.push(sql);
-  addCase('approvals', 'Approval Governance', `Approval Request ID ${i}`, `Approval for Quotation #${qId} required role ${role} - Status: ${status}.`, sql);
+let approvalIdCounter = 1;
+
+for (let qId = 101; qId <= 300; qId++) {
+  // Determine risk level based on quote range (matching quotation generator):
+  // 101-160: LOW (60 deals)
+  // 161-230: MEDIUM (70 deals)
+  // 231-280: HIGH (50 deals)
+  // 281-300: CRITICAL (20 deals)
+
+  let appTasks = [];
+  if (qId >= 281) {
+    // CRITICAL Risk (>=80): ADMIN required
+    appTasks = [{ level: 1, role: 'ADMIN', status: 'PENDING' }];
+  } else if (qId >= 231) {
+    // HIGH Risk (60-79.99): SALES_MANAGER (Level 1) & FINANCE (Level 2)
+    appTasks = [
+      { level: 1, role: 'SALES_MANAGER', status: 'APPROVED', approver_id: 13, reason: 'Level 1 Sales Manager approval passed' },
+      { level: 2, role: 'FINANCE', status: 'PENDING', approver_id: null, reason: null }
+    ];
+  } else if (qId >= 161) {
+    // MEDIUM Risk (30-59.99): SALES_MANAGER required
+    appTasks = [{ level: 1, role: 'SALES_MANAGER', status: 'PENDING', approver_id: null, reason: null }];
+  } else if (qId % 4 === 0) {
+    // LOW Risk with discount rule approval required
+    appTasks = [{ level: 1, role: 'SALES_MANAGER', status: 'APPROVED', approver_id: 13, reason: 'Approved standard tier discount' }];
+  }
+
+  appTasks.forEach(task => {
+    const id = approvalIdCounter++;
+    const sql = `INSERT INTO approvals (id, quotation_id, approval_chain_id, approval_level, required_role, status, approver_id, reason) VALUES (${id}, ${qId}, 1, ${task.level}, ${esc(task.role)}, ${esc(task.status)}, ${esc(task.approver_id || null)}, ${esc(task.reason || null)});`;
+    approvalSqls.push(sql);
+    addCase('approvals', 'Approval Governance', `Approval Request ID ${id} (QT-#${qId})`, `Approval task for Quotation #${qId}: ${task.role} (Level ${task.level}) - Status: ${task.status}.`, sql);
+  });
 }
+
+console.log(`Approvals (${approvalIdCounter - 1}) generated.`);
 
 // ---------------------------------------------------------
 // 21. PRODUCT RECOMMENDATION RULES (10 Records: IDs 1 to 10)

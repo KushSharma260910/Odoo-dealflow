@@ -1,6 +1,6 @@
 # DealFlow360 Massive Test Cases & Scenario Suite
 
-This document details the comprehensive **1641 test cases** designed and generated for the DealFlow360 platform, featuring **200 Customers**, **200 Users**, **200 Products**, and **200 Quotations**.
+This document details the comprehensive **1816 test cases** designed and generated for the DealFlow360 platform, featuring **200 Customers**, **200 Users**, **200 Products**, and **200 Quotations**.
 Every test case corresponds strictly to the database schema defined in `database/schema.sql`, respects all primary keys, foreign keys, constraints, enums, defaults, and implements the backend risk engine business rules.
 
 ---
@@ -59,7 +59,7 @@ CRITICAL: 20
 | 17 | `quotations` | **200** | Sales Operations |
 | 18 | `quotation_items` | **260** | Sales Operations |
 | 19 | `quotation_status_history` | **20** | Audit Trail |
-| 20 | `approvals` | **30** | Approval Governance |
+| 20 | `approvals` | **205** | Approval Governance |
 | 21 | `product_recommendation_rules` | **10** | AI & Recommendations |
 | 22 | `deal_health_rules` | **3** | Risk & Monitoring |
 | 23 | `deal_health_events` | **20** | Risk & Monitoring |
@@ -80,4 +80,4 @@ CRITICAL: 20
 | 38 | `audit_logs` | **10** | Security & Compliance |
 | 39 | `report_configurations` | **5** | Analytics & BI |
 
-**Total Test Cases Count: Exactly 1641**
+**Total Test Cases Count: Exactly 1816**

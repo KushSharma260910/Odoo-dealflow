@@ -4,6 +4,8 @@ import { quotationService } from '../../services/quotation.service';
 import { discountService } from '../../services/discount.service';
 import { recommendationService } from '../../services/recommendation.service';
 import { warehouseService } from '../../services/warehouse.service';
+import { approvalService } from '../../services/approval.service';
+import { useAuth } from '../../context/AuthContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import {
@@ -12,21 +14,26 @@ import {
   ShieldAlert,
   ShoppingBag,
   Sparkles,
-  MessageSquare,
-  FileSpreadsheet,
   CheckCircle,
+  XCircle,
+  ShieldCheck,
+  Check,
+  X
 } from 'lucide-react';
 
 export const QuotationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [quotation, setQuotation] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
+  const [approvalTasks, setApprovalTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [decisionReason, setDecisionReason] = useState('');
 
   useEffect(() => {
     fetchDetails();
@@ -42,6 +49,10 @@ export const QuotationDetails = () => {
       const recRes = await recommendationService.forQuotation(id);
       if (recRes.success) {
         setRecommendations(recRes.data || []);
+      }
+      const appRes = await approvalService.list({ quotation_id: id });
+      if (appRes.success) {
+        setApprovalTasks(appRes.data || []);
       }
     } catch (err) {
       setError(err.message);
@@ -106,6 +117,38 @@ export const QuotationDetails = () => {
       if (res.success) {
         setMessage(`Confirmed Order #${res.data.id} created from quotation!`);
         navigate('/operations/fulfillment');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApproveTask = async (taskId) => {
+    try {
+      setActionLoading(true);
+      const res = await approvalService.approve(taskId, decisionReason);
+      if (res.success) {
+        setMessage('Approval decision registered successfully.');
+        setDecisionReason('');
+        fetchDetails();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectTask = async (taskId) => {
+    try {
+      setActionLoading(true);
+      const res = await approvalService.reject(taskId, decisionReason);
+      if (res.success) {
+        setMessage('Proposal rejected and marked accordingly.');
+        setDecisionReason('');
+        fetchDetails();
       }
     } catch (err) {
       setError(err.message);
@@ -217,6 +260,84 @@ export const QuotationDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Approval Governance Card */}
+      {approvalTasks.length > 0 && (
+        <div className="bg-white rounded-xl border border-purple-200 p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="w-5 h-5 text-purple-600" />
+              <h3 className="text-base font-bold text-gray-900">Governance & Role Approval Tasks</h3>
+            </div>
+            <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+              Risk Level: {quotation.risk_level} (Score: {quotation.risk_score})
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {approvalTasks.map((task) => {
+              const canUserApprove = user?.role === 'ADMIN' || user?.role === task.required_role;
+
+              return (
+                <div key={task.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold font-mono px-2.5 py-0.5 rounded bg-purple-100 text-purple-800">
+                        {task.required_role}
+                      </span>
+                      <span className="text-xs font-medium text-gray-500">Level {task.approval_level}</span>
+                      <StatusBadge status={task.status} />
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      {task.status === 'PENDING'
+                        ? `Awaiting approval from ${task.required_role} due to ${quotation.risk_level} risk score (${quotation.risk_score})`
+                        : `Decided by ${task.approver_name || 'System'}: ${task.reason || 'No note provided'}`}
+                    </p>
+                  </div>
+
+                  {task.status === 'PENDING' && (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                      {canUserApprove ? (
+                        <>
+                          <input
+                            type="text"
+                            value={decisionReason}
+                            onChange={(e) => setDecisionReason(e.target.value)}
+                            placeholder="Optional decision note..."
+                            className="text-xs border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white"
+                          />
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleApproveTask(task.id)}
+                              disabled={actionLoading}
+                              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              onClick={() => handleRejectTask(task.id)}
+                              disabled={actionLoading}
+                              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-xs text-amber-700 font-semibold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                          Requires {task.required_role} Authorization
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Quotation Line Items Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6 space-y-4">
