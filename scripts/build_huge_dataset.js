@@ -589,8 +589,8 @@ for (let qId = 101; qId <= 300; qId++) {
       { level: 2, role: 'FINANCE', status: 'PENDING', approver_id: null, reason: null }
     ];
   } else if (qId >= 161) {
-    // MEDIUM Risk (30-59.99): SALES_MANAGER required
-    appTasks = [{ level: 1, role: 'SALES_MANAGER', status: 'PENDING', approver_id: null, reason: null }];
+    // MEDIUM Risk (30-59.99): SALES_REP required
+    appTasks = [{ level: 1, role: 'SALES_REP', status: 'PENDING', approver_id: null, reason: null }];
   } else if (qId % 4 === 0) {
     // LOW Risk with discount rule approval required
     appTasks = [{ level: 1, role: 'SALES_MANAGER', status: 'APPROVED', approver_id: 13, reason: 'Approved standard tier discount' }];

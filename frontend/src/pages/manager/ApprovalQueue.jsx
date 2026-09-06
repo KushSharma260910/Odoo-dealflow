@@ -90,7 +90,8 @@ export const ApprovalQueue = () => {
   const getRoleBadge = (role) => {
     if (role === 'ADMIN') return 'bg-rose-100 text-rose-800 border-rose-200';
     if (role === 'FINANCE') return 'bg-purple-100 text-purple-800 border-purple-200';
-    return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (role === 'SALES_MANAGER') return 'bg-blue-100 text-blue-800 border-blue-200';
+    return 'bg-emerald-100 text-emerald-800 border-emerald-200';
   };
 
   return (
@@ -166,7 +167,10 @@ export const ApprovalQueue = () => {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginated.map((appr) => {
-                  const canUserApprove = user?.role === 'ADMIN' || user?.role === appr.required_role;
+                  const canUserApprove = 
+                    user?.role === 'ADMIN' || 
+                    user?.role === appr.required_role || 
+                    (user?.role === 'SALES_MANAGER' && (appr.required_role === 'SALES_MANAGER' || appr.required_role === 'SALES_REP'));
 
                   return (
                     <tr key={appr.id} className="hover:bg-gray-50/80 transition-colors">

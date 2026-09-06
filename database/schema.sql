@@ -329,6 +329,7 @@ CREATE TABLE approval_rules (
     approval_level INT NOT NULL,
 
     role ENUM(
+        'SALES_REP',
         'SALES_MANAGER',
         'FINANCE',
         'ADMIN'
@@ -606,6 +607,7 @@ CREATE TABLE approvals (
     approval_level INT NOT NULL,
 
     required_role ENUM(
+        'SALES_REP',
         'SALES_MANAGER',
         'FINANCE',
         'ADMIN'

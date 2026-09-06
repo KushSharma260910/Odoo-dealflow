@@ -276,7 +276,10 @@ export const QuotationDetails = () => {
 
           <div className="space-y-3">
             {approvalTasks.map((task) => {
-              const canUserApprove = user?.role === 'ADMIN' || user?.role === task.required_role;
+              const canUserApprove = 
+                user?.role === 'ADMIN' || 
+                user?.role === task.required_role || 
+                (user?.role === 'SALES_MANAGER' && (task.required_role === 'SALES_MANAGER' || task.required_role === 'SALES_REP'));
 
               return (
                 <div key={task.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

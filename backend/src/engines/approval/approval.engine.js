@@ -15,7 +15,7 @@ async function createForQuotation(quotationId) {
   // Determine required roles based on risk score and risk level:
   // CRITICAL (score >= 80): ADMIN
   // HIGH (score >= 60): SALES_MANAGER (Level 1) & FINANCE (Level 2)
-  // MEDIUM (score >= 30): SALES_MANAGER (Level 1)
+  // MEDIUM (score >= 30): SALES_REP (Level 1)
   // LOW (score < 30): SALES_MANAGER (if discount rules require approval)
 
   const rolesToCreate = [];
@@ -24,7 +24,9 @@ async function createForQuotation(quotationId) {
   } else if (level === "HIGH" || score >= 60) {
     rolesToCreate.push({ level: 1, role: "SALES_MANAGER" });
     rolesToCreate.push({ level: 2, role: "FINANCE" });
-  } else if (level === "MEDIUM" || score >= 30 || quote.approval_required) {
+  } else if (level === "MEDIUM" || score >= 30) {
+    rolesToCreate.push({ level: 1, role: "SALES_REP" });
+  } else if (quote.approval_required) {
     rolesToCreate.push({ level: 1, role: "SALES_MANAGER" });
   }
 
