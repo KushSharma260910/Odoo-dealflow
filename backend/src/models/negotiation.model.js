@@ -11,11 +11,24 @@ async function list(user) {
 
 async function findById(id) {
 	const rows = await query(
-		`SELECT n.*, c.name AS customer_name, q.total_amount, q.status AS quotation_status
-		 FROM negotiations n JOIN customers c ON c.id = n.customer_id
-		 JOIN quotations q ON q.id = n.quotation_id WHERE n.id = ?`, [id]
+		`SELECT n.*, c.name AS customer_name, q.total_amount, q.status AS quotation_status, u.name AS sales_rep_name
+		 FROM negotiations n 
+		 JOIN customers c ON c.id = n.customer_id
+		 JOIN quotations q ON q.id = n.quotation_id 
+		 LEFT JOIN users u ON u.id = q.sales_rep_id
+		 WHERE n.id = ? OR n.quotation_id = ?`, [id, id]
 	);
-	return rows[0] || null;
+	if (!rows[0]) return null;
+
+	rows[0].messages = await messages(rows[0].id);
+	rows[0].line_requests = await query(
+		`SELECT nlr.*, p.name AS product_name, qi.unit_price, qi.line_total
+		 FROM negotiation_line_requests nlr
+		 JOIN quotation_items qi ON qi.id = nlr.quotation_item_id
+		 JOIN products p ON p.id = qi.product_id
+		 WHERE nlr.negotiation_id = ? ORDER BY nlr.created_at`, [rows[0].id]
+	);
+	return rows[0];
 }
 
 async function messages(id) {

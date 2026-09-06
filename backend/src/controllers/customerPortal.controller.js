@@ -55,38 +55,67 @@ async function quotation(req, res, next) {
     next(e);
   }
 }
+async function getOrCreateNegotiation(paramId, customerId) {
+  let rows = await query(
+    "SELECT * FROM negotiations WHERE (id = ? OR quotation_id = ?) AND customer_id = ?",
+    [paramId, paramId, customerId]
+  );
+  if (rows[0]) return rows[0];
+
+  const quotes = await query(
+    "SELECT id, total_amount, subtotal, discount_amount FROM quotations WHERE id = ? AND customer_id = ?",
+    [paramId, customerId]
+  );
+  if (!quotes[0]) return null;
+
+  const subtotal = Number(quotes[0].subtotal || 0);
+  const discountAmount = Number(quotes[0].discount_amount || 0);
+  const proposedDiscount = subtotal ? Math.round((discountAmount * 100 / subtotal) * 100) / 100 : 0;
+
+  const result = await query(
+    "INSERT INTO negotiations (quotation_id, customer_id, status, proposed_discount_percent, proposed_total) VALUES (?, ?, 'OPEN', ?, ?)",
+    [quotes[0].id, customerId, proposedDiscount, quotes[0].total_amount]
+  );
+
+  const created = await query("SELECT * FROM negotiations WHERE id = ?", [result.insertId]);
+  return created[0] || null;
+}
+
 async function negotiations(req, res, next) {
   try {
-    const id = await getCustomerId(req, res);
-    if (!id) return;
-    const rows = await query(
-      "SELECT * FROM negotiations WHERE id = ? AND customer_id = ?",
-      [req.params.id, id],
-    );
-    if (!rows[0]) return failure(res, "Negotiation not found", 404);
+    const customerId = await getCustomerId(req, res);
+    if (!customerId) return;
+
+    const neg = await getOrCreateNegotiation(req.params.id, customerId);
+    if (!neg) return failure(res, "Negotiation or Quotation not found", 404);
+
     const messages = await query(
       "SELECT nm.*, u.name AS sender_name, u.role AS sender_role FROM negotiation_messages nm JOIN users u ON u.id = nm.sender_user_id WHERE nm.negotiation_id = ? ORDER BY nm.created_at",
-      [req.params.id],
+      [neg.id]
     );
-    return success(res, { ...rows[0], messages });
+
+    return success(res, { ...neg, messages });
   } catch (e) {
     next(e);
   }
 }
+
 async function message(req, res, next) {
   try {
-    const id = await getCustomerId(req, res);
-    if (!id) return;
+    const customerId = await getCustomerId(req, res);
+    if (!customerId) return;
     if (!req.body.message) return failure(res, "message is required");
-    const rows = await query(
-      "SELECT id FROM negotiations WHERE id = ? AND customer_id = ?",
-      [req.params.id, id],
-    );
-    if (!rows[0]) return failure(res, "Negotiation not found", 404);
+
+    const neg = await getOrCreateNegotiation(req.params.id, customerId);
+    if (!neg) return failure(res, "Negotiation or Quotation not found", 404);
+
     const result = await query(
       "INSERT INTO negotiation_messages (negotiation_id, sender_user_id, message) VALUES (?, ?, ?)",
-      [req.params.id, req.user.id, req.body.message],
+      [neg.id, req.user.id, req.body.message]
     );
+
+    await query("UPDATE negotiations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", [neg.id]);
+
     return success(res, { id: result.insertId }, 201);
   } catch (e) {
     next(e);
