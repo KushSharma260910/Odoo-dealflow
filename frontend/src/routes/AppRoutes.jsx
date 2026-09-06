@@ -12,6 +12,7 @@ import { Dashboard } from '../pages/sales/Dashboard';
 import { Quotations } from '../pages/sales/Quotations';
 import { CreateQuotation } from '../pages/sales/CreateQuotation';
 import { QuotationDetails } from '../pages/sales/QuotationDetails';
+import { Negotiations } from '../pages/sales/Negotiations';
 
 // Manager
 import { ApprovalQueue } from '../pages/manager/ApprovalQueue';
@@ -79,6 +80,7 @@ export const AppRoutes = () => {
         <Route path="/sales/quotations" element={<Quotations />} />
         <Route path="/sales/quotations/new" element={<CreateQuotation />} />
         <Route path="/sales/quotations/:id" element={<QuotationDetails />} />
+        <Route path="/sales/negotiations" element={<Negotiations />} />
 
         {/* Manager */}
         <Route

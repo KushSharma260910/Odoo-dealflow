@@ -341,7 +341,14 @@ export const QuotationDetails = () => {
 
       {/* Quotation Line Items Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6 space-y-4">
-        <h3 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-3">Line Items</h3>
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <h3 className="text-base font-semibold text-gray-900">Line Items</h3>
+          {['SALES_MANAGER', 'ADMIN'].includes(user?.role) && (
+            <span className="text-xs text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md font-semibold border border-blue-200">
+              Manager Discount Override Enabled
+            </span>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -361,7 +368,30 @@ export const QuotationDetails = () => {
                   <td className="px-4 py-3.5 font-mono text-xs text-gray-500">{item.sku}</td>
                   <td className="px-4 py-3.5 text-right font-medium">{item.quantity}</td>
                   <td className="px-4 py-3.5 text-right">${Number(item.unit_price).toFixed(2)}</td>
-                  <td className="px-4 py-3.5 text-right text-rose-600 font-medium">{item.discount_percent}%</td>
+                  <td className="px-4 py-3.5 text-right">
+                    {['SALES_MANAGER', 'ADMIN', 'SALES_REP'].includes(user?.role) && quotation.status !== 'CONFIRMED' ? (
+                      <div className="flex items-center justify-end space-x-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          defaultValue={item.discount_percent}
+                          onBlur={async (e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val !== Number(item.discount_percent)) {
+                              await quotationService.updateItem(item.id, { discount_percent: val });
+                              fetchDetails();
+                            }
+                          }}
+                          className="w-16 border border-gray-300 rounded px-1.5 py-1 text-right text-xs font-bold text-rose-600 focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-xs font-bold text-rose-600">%</span>
+                      </div>
+                    ) : (
+                      <span className="text-rose-600 font-medium">{item.discount_percent}%</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3.5 text-right font-bold text-gray-900">${Number(item.line_total).toFixed(2)}</td>
                 </tr>
               ))}
@@ -375,7 +405,7 @@ export const QuotationDetails = () => {
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm">
           <div className="flex items-center space-x-2 mb-3">
             <Sparkles className="w-5 h-5 text-blue-600" />
-            <h3 className="text-base font-bold text-gray-900">AI Intelligent Upsell Recommendations</h3>
+            <h3 className="text-base font-bold text-gray-900">Recommended Product Bundles & Cross-Sells</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {recommendations.map((rec) => (

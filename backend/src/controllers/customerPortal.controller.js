@@ -65,7 +65,7 @@ async function negotiations(req, res, next) {
     );
     if (!rows[0]) return failure(res, "Negotiation not found", 404);
     const messages = await query(
-      "SELECT * FROM negotiation_messages WHERE negotiation_id = ? ORDER BY created_at",
+      "SELECT nm.*, u.name AS sender_name, u.role AS sender_role FROM negotiation_messages nm JOIN users u ON u.id = nm.sender_user_id WHERE nm.negotiation_id = ? ORDER BY nm.created_at",
       [req.params.id],
     );
     return success(res, { ...rows[0], messages });

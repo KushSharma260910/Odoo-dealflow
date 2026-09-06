@@ -4,18 +4,19 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Modal } from '../../components/common/Modal';
-import { Plus, Search, Trash2, Edit } from 'lucide-react';
+import { Plus, Search, Trash2, Edit, FileSpreadsheet, Upload, CheckCircle } from 'lucide-react';
 
 export const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 15;
 
-  // Modal State
+  // Create / Edit Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [name, setName] = useState('');
@@ -23,6 +24,11 @@ export const Products = () => {
   const [categoryId, setCategoryId] = useState(1);
   const [basePrice, setBasePrice] = useState(100);
   const [costPrice, setCostPrice] = useState(60);
+
+  // Bulk CSV/Excel Import Modal State
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [csvText, setCsvText] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -67,27 +73,91 @@ export const Products = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
+      setError(null);
       if (editingId) {
         await productService.update(editingId, {
           name,
-          sku,
+          sku: sku || `SKU-${Date.now()}`,
           category_id: Number(categoryId),
           base_price: Number(basePrice),
           cost_price: Number(costPrice),
         });
+        setSuccessMessage('Product updated successfully!');
       } else {
         await productService.create({
           name,
-          sku,
+          sku: sku || `SKU-${Date.now()}`,
           category_id: Number(categoryId),
           base_price: Number(basePrice),
           cost_price: Number(costPrice),
         });
+        setSuccessMessage('New product added to catalog successfully!');
       }
       setModalOpen(false);
       fetchProducts();
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      setCsvText(evt.target.result || '');
+    };
+    reader.readAsText(file);
+  };
+
+  const parseCsvAndImport = async (e) => {
+    e.preventDefault();
+    if (!csvText.trim()) return;
+    try {
+      setImportLoading(true);
+      setError(null);
+
+      const lines = csvText.split('\n');
+      const items = [];
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line || line.toLowerCase().startsWith('name') || line.toLowerCase().startsWith('product')) continue;
+
+        const parts = line.split(',').map((p) => p.trim().replace(/^["']|["']$/g, ''));
+        if (parts.length >= 2) {
+          const nameVal = parts[0];
+          const skuVal = parts[1] || `SKU-${Date.now()}-${items.length}`;
+          const baseP = parseFloat(parts[2]) || 100.00;
+          const costP = parseFloat(parts[3]) || 60.00;
+
+          if (nameVal) {
+            items.push({
+              name: nameVal,
+              sku: skuVal,
+              base_price: baseP,
+              cost_price: costP,
+              category_id: 1,
+            });
+          }
+        }
+      }
+
+      if (items.length === 0) {
+        throw new Error('No valid product rows parsed from CSV. Expected format: Product Name, SKU, Base Price, Cost Price');
+      }
+
+      const res = await productService.bulkImport(items);
+      if (res.success) {
+        setSuccessMessage(`Successfully imported ${res.data.count} products from CSV!`);
+        setImportModalOpen(false);
+        setCsvText('');
+        fetchProducts();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImportLoading(false);
     }
   };
 
@@ -131,11 +201,23 @@ export const Products = () => {
           </div>
           <p className="text-sm text-gray-500">Configure products, base prices, costs, and categories</p>
         </div>
-        <button
-          onClick={handleOpenCreate}
-          className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setImportModalOpen(true)}
+            className="inline-flex items-center space-x-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Import CSV / Excel</span>
+          </button>
+          <button
+            onClick={handleOpenCreate}
+            className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Product</span>
+          </button>
+        </div>
+      </div>
           <span>New Product</span>
         </button>
       </div>
@@ -170,6 +252,16 @@ export const Products = () => {
           Showing {paginated.length} of {filtered.length} products
         </div>
       </div>
+
+      {successMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <span>{successMessage}</span>
+          </div>
+          <button onClick={() => setSuccessMessage(null)} className="text-emerald-800 font-bold hover:underline">Dismiss</button>
+        </div>
+      )}
 
       {error && <div className="p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
 
@@ -292,6 +384,55 @@ export const Products = () => {
             </button>
             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">
               Save Product
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Bulk CSV/Excel Import Modal */}
+      <Modal isOpen={importModalOpen} onClose={() => setImportModalOpen(false)} title="Bulk Import Products via CSV / Excel">
+        <form onSubmit={parseCsvAndImport} className="space-y-4">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1">
+            <p className="font-bold">Expected CSV / Excel Format:</p>
+            <p className="font-mono text-[11px] bg-white p-1.5 rounded border border-blue-100">
+              Product Name, SKU Code, Base Price, Cost Price<br />
+              Dell XPS 15, DELL-XPS-01, 1899.00, 1350.00<br />
+              Cisco Switch 48P, CISCO-SW-48, 3200.00, 2100.00
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Upload CSV / Text File</label>
+            <input
+              type="file"
+              accept=".csv,.txt,.xlsx"
+              onChange={handleFileUpload}
+              className="w-full text-xs text-gray-600 border border-gray-300 rounded-lg p-2 bg-gray-50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Or Paste CSV Data Below</label>
+            <textarea
+              rows="6"
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              placeholder="Product Name, SKU Code, Base Price, Cost Price..."
+              className="w-full border border-gray-300 rounded-lg p-2.5 text-xs font-mono"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-2">
+            <button type="button" onClick={() => setImportModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={importLoading || !csvText.trim()}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 inline-flex items-center space-x-1"
+            >
+              <Upload className="w-4 h-4" />
+              <span>{importLoading ? 'Importing...' : 'Import Products'}</span>
             </button>
           </div>
         </form>
