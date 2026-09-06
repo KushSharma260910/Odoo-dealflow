@@ -218,9 +218,6 @@ export const Products = () => {
           </button>
         </div>
       </div>
-          <span>New Product</span>
-        </button>
-      </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
